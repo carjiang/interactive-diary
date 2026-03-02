@@ -1,4 +1,4 @@
-FROM python:3.9
+FROM python:3.12
 
 # Install ffmpeg and protaudio for audio processing
 RUN apt-get update && \
