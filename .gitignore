@@ -1,2 +1,9 @@
 # macOS
 .DS_Store
+
+# virtual environments
+venv/
+
+# temp files
+temp*
+*/temp*
