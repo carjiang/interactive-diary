@@ -14,6 +14,12 @@ docker run your_username/your_docker_image_respository \
     python -m pytest tests/test_whisper.py
 ```
 
+# Run LLM Test
+```bash
+docker run --env-file .env mikono/id \
+    python -m pytest tests/test_llm.py
+```
+
 # Run Live Transcription
 1. Build docker image with name `your_username/your_docker_image_respository`.
 1. Set up a virtual environment and install packages at `host_requirements.txt` with `pip install -r host_requirements.txt`.

@@ -4,6 +4,9 @@
 # virtual environments
 venv/
 
+# environemnt variables
+.env
+
 # temp files
 temp*
 */temp*
