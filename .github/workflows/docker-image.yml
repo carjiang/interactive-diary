@@ -1,0 +1,22 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build the Docker image
+      run: docker build . --file Dockerfile --tag interactive-diary 
+    - name: Run container tests
+      run: docker run -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
+        interactive-diary \
+        python -m pytest tests/
