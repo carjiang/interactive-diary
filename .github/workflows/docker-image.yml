@@ -17,6 +17,4 @@ jobs:
     - name: Build the Docker image
       run: docker build . --file Dockerfile --tag interactive-diary 
     - name: Run container tests
-      run: docker run -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
-        interactive-diary \
-        python -m pytest tests/
+      run: docker run -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} --rm interactive-diary python -m pytest tests/
