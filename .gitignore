@@ -10,3 +10,21 @@ venv/
 # temp files
 temp*
 */temp*
+# NER pipeline
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+*.plan.md
+
+checkpoints/
+*.pt
+*.bin
+
+.idea/
+.vscode/
+*.swp
