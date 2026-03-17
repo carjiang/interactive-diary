@@ -1,4 +1,28 @@
 venv
+.venv
 .env
 .git
 __pycache__
+*.pyc
+*.pyo
+
+# Model checkpoints (can be GB-sized)
+checkpoints/
+*.pt
+*.bin
+
+# CI/IDE/OS
+.github/
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Host-only tests
+host_tests/
+
+# Build artifacts
+*.egg-info/
+dist/
+build/
+.eggs/
