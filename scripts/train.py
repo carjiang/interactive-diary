@@ -24,6 +24,7 @@ from transformers import BertTokenizerFast, get_linear_schedule_with_warmup
 from seqeval.metrics import classification_report, f1_score
 
 from data.schema_spec import load_dataset
+from extractor import get_device
 from extractor.model import BertCRFForNER, NERDataset, IGNORE_LABEL_ID
 from extractor.schema import ID_TO_LABEL, NERConfig, NERSample
 
@@ -65,6 +66,14 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--epochs", type=int, default=EPOCHS)
     p.add_argument("--batch-size", type=int, default=BATCH_SIZE)
     p.add_argument("--lr", type=float, default=LEARNING_RATE)
+    p.add_argument("--head-lr", type=float, default=1e-3,
+                   help="LR for classifier + CRF head (default: 1e-3)")
+    p.add_argument("--model-name", type=str, default="bert-base-uncased",
+                   help="HuggingFace model identifier or local path")
+    p.add_argument("--dropout", type=float, default=0.1)
+    p.add_argument("--no-crf", action="store_true", help="Disable CRF layer")
+    p.add_argument("--freeze-layers", type=int, default=0,
+                   help="Number of bottom BERT layers to freeze")
     p.add_argument("--checkpoint-dir", type=str, default=CHECKPOINT_DIR)
     return p.parse_args()
 
@@ -73,7 +82,7 @@ def load_and_split(
     path: str, val_split: float, seed: int,
 ) -> tuple[list[NERSample], list[NERSample]]:
     samples = load_dataset(path)
-    logger.info(f"Loaded {len(samples)} samples from {path}")
+    logger.info("Loaded %d samples from %s", len(samples), path)
 
     if len(samples) < 2:
         raise ValueError(
@@ -86,19 +95,8 @@ def load_and_split(
     split_idx = max(1, min(len(samples) - 1, int(len(samples) * (1 - val_split))))
     train, val = samples[:split_idx], samples[split_idx:]
 
-    logger.info(f"Split: {len(train)} train, {len(val)} val")
+    logger.info("Split: %d train, %d val", len(train), len(val))
     return train, val
-
-
-def get_device() -> torch.device:
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-        device = torch.device("mps")
-    else:
-        device = torch.device("cpu")
-    logger.info(f"Using device: {device}")
-    return device
 
 
 def collect_predictions(
@@ -172,7 +170,12 @@ def main() -> None:
     seed_everything(args.seed)
 
     cfg = NERConfig(
+        model_name=args.model_name,
+        dropout=args.dropout,
+        use_crf=not args.no_crf,
+        freeze_bert_layers=args.freeze_layers,
         learning_rate=args.lr,
+        head_learning_rate=args.head_lr,
         batch_size=args.batch_size,
         num_epochs=args.epochs,
     )
@@ -195,11 +198,14 @@ def main() -> None:
     )
 
     device = get_device()
+    logger.info("Using device: %s", device)
 
     model = BertCRFForNER(cfg).to(device)
     logger.info(
-        f"Model: {cfg.model_name}, CRF={'on' if cfg.use_crf else 'off'}, "
-        f"params={sum(p.numel() for p in model.parameters()):,}"
+        "Model: %s, CRF=%s, params=%s",
+        cfg.model_name,
+        "on" if cfg.use_crf else "off",
+        f"{sum(p.numel() for p in model.parameters()):,}",
     )
 
     optimizer = AdamW(
@@ -219,9 +225,9 @@ def main() -> None:
     ckpt_dir = Path(args.checkpoint_dir)
 
     logger.info(
-        f"Training: {cfg.num_epochs} epochs, "
-        f"batch_size={cfg.batch_size}, lr={cfg.learning_rate}, "
-        f"warmup={warmup_steps}/{total_steps} steps"
+        "Training: %d epochs, batch_size=%d, lr=%s, warmup=%d/%d steps",
+        cfg.num_epochs, cfg.batch_size, cfg.learning_rate,
+        warmup_steps, total_steps,
     )
 
     for epoch in range(1, cfg.num_epochs + 1):
@@ -252,15 +258,15 @@ def main() -> None:
         current_lr = scheduler.get_last_lr()[0]
 
         logger.info(
-            f"Epoch {epoch}/{cfg.num_epochs} — "
-            f"loss: {avg_loss:.4f}, lr: {current_lr:.2e}, time: {elapsed:.1f}s"
+            "Epoch %d/%d — loss: %.4f, lr: %.2e, time: %.1fs",
+            epoch, cfg.num_epochs, avg_loss, current_lr, elapsed,
         )
 
         true_tags, pred_tags = collect_predictions(model, val_loader, device)
 
         report = classification_report(true_tags, pred_tags, zero_division=0)
         epoch_f1 = f1_score(true_tags, pred_tags, zero_division=0)
-        logger.info(f"Val F1: {epoch_f1:.4f}\n{report}")
+        logger.info("Val F1: %.4f\n%s", epoch_f1, report)
 
         if epoch_f1 > best_f1:
             best_f1 = epoch_f1
@@ -272,11 +278,11 @@ def main() -> None:
             (ckpt_dir / "config.json").write_text(
                 cfg.model_dump_json(indent=2)
             )
-            logger.info(f"  ↑ New best — saved to {ckpt_dir}/")
+            logger.info("  New best — saved to %s/", ckpt_dir)
 
     logger.info(
-        f"\nDone. Best val F1: {best_f1:.4f} at epoch {best_epoch}. "
-        f"Checkpoint: {ckpt_dir}/"
+        "Done. Best val F1: %.4f at epoch %d. Checkpoint: %s/",
+        best_f1, best_epoch, ckpt_dir,
     )
 
 

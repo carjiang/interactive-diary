@@ -346,6 +346,25 @@ class BertCRFForNER(nn.Module):
         original training state afterward.  Uses ``torch.inference_mode``
         for maximum inference performance.
         """
+        tag_seqs, _, _ = self.decode_with_emissions(
+            input_ids, attention_mask, word_starts, num_words,
+        )
+        return tag_seqs
+
+    def decode_with_emissions(
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor,
+        word_starts: torch.Tensor,
+        num_words: torch.Tensor,
+    ) -> tuple[list[list[int]], torch.Tensor, torch.Tensor]:
+        """Decode and return emissions in a single BERT forward pass.
+
+        Returns:
+            tag_seqs:  Best tag-id sequence per batch element.
+            emissions: (batch, max_words, num_labels) logits.
+            word_mask: (batch, max_words) float mask.
+        """
         was_training = self.training
         self.eval()
         try:
@@ -354,8 +373,10 @@ class BertCRFForNER(nn.Module):
                     input_ids, attention_mask, word_starts, num_words,
                 )
                 if self.crf is not None:
-                    return self.crf.decode(emissions, word_mask)
-                all_ids = emissions.argmax(dim=-1).tolist()
-                return [ids[:n] for ids, n in zip(all_ids, num_words.tolist())]
+                    tag_seqs = self.crf.decode(emissions, word_mask)
+                else:
+                    all_ids = emissions.argmax(dim=-1).tolist()
+                    tag_seqs = [ids[:n] for ids, n in zip(all_ids, num_words.tolist())]
+                return tag_seqs, emissions, word_mask
         finally:
             self.train(was_training)

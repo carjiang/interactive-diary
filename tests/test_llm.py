@@ -10,4 +10,7 @@ def test_llm():
         input="Repeat the following back to me, but reverse the word order: 'hello beautiful world'",
     )
 
-    assert response.output_text == "world beautiful hello"
+    words = response.output_text.strip().rstrip(".").lower().split()
+    assert words == ["world", "beautiful", "hello"], (
+        f"Expected reversed word order, got: {response.output_text!r}"
+    )

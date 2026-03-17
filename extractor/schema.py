@@ -42,6 +42,14 @@ class Event(BaseModel):
     )
     confidence: float = Field(..., ge=0.0, le=1.0)
     text_span: TextSpan | None = None
+    temporal_text: str | None = Field(
+        default=None,
+        description="Temporal phrase extracted from TEMPORAL entity spans (e.g. 'After lunch', 'Friday morning')",
+    )
+    temporal_order: int | None = Field(
+        default=None, ge=0,
+        description="Global sequential position across diary entries",
+    )
 
 
 class DiaryEntry(BaseModel):
@@ -50,6 +58,10 @@ class DiaryEntry(BaseModel):
     entry_timestamp: datetime
     raw_text: str
     events: list[Event] = Field(default_factory=list)
+    source_entry_id: str | None = Field(
+        default=None,
+        description="ID of a related/source diary entry, if applicable",
+    )
 
 
 ENTITY_TYPES: list[str] = [
