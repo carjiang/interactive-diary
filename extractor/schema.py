@@ -83,6 +83,19 @@ LABEL_TO_ID: dict[str, int] = {label: i for i, label in enumerate(BIO_LABELS)}
 ID_TO_LABEL: dict[int, str] = dict(enumerate(BIO_LABELS))
 
 
+class SampleOrdering(BaseModel):
+    """Metadata line for the diary entry sample, indicating sentence count and correct ordering."""
+    num_sentences: int = Field(..., ge=1)
+    correct_ordering: list[int] = Field(..., min_length=1)
+
+    @model_validator(mode="after")
+    def _validate_ordering(self) -> SampleOrdering:
+        if sorted(self.correct_ordering) != list(range(1, self.num_sentences + 1)):
+            raise ValueError(
+                f"correct_ordering must be a permutation of [1, ..., {self.num_sentences}]"
+            )
+        return self
+
 class NERSample(BaseModel):
     """One training sample: a pre-tokenised sentence with BIO tags."""
 

@@ -6,6 +6,9 @@ Reads JSONL files and validates each line against ``NERSample``
 samples should validate against NERSample before delivering data.
 
 Expected file format — one JSON object per line:
+    First Line:
+        {"num_sentences" : 5, "correct_ordering": [5, 4, 1, 2, 3] }
+    All Following Lines:
     {"tokens": ["I", "told", "Sarah", ...], "bio_tags": ["B-PARTICIPANT", "B-ACTION", "B-PARTICIPANT", ...]}
 """
 
@@ -17,7 +20,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from extractor.schema import NERSample
+from extractor.schema import NERSample, SampleOrdering
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +37,7 @@ def load_dataset(path: str | Path, *, strict: bool = True) -> list[NERSample]:
     if not path.exists():
         raise FileNotFoundError(f"Dataset file not found: {path}")
 
+    ordering: SampleOrdering | None = None
     samples: list[NERSample] = []
     num_errors = 0
 
@@ -54,7 +58,10 @@ def load_dataset(path: str | Path, *, strict: bool = True) -> list[NERSample]:
                 continue
 
             try:
-                samples.append(NERSample(**obj))
+                if line_num == 0:
+                    ordering = SampleOrdering(**obj)
+                else:
+                    samples.append(NERSample(**obj))
             except ValidationError as e:
                 msg = f"Line {line_num}: validation failed —\n{e}"
                 if strict:
@@ -68,4 +75,4 @@ def load_dataset(path: str | Path, *, strict: bool = True) -> list[NERSample]:
     if num_errors:
         logger.warning("Skipped %d invalid line(s) in %s", num_errors, path)
 
-    return samples
+    return ordering, samples
