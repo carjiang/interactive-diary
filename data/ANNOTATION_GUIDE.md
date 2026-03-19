@@ -20,7 +20,7 @@ This will report every invalid line at once.
 
 ## How BIO Tagging Works
 
-Every token gets exactly one label. The label is either `O` (not an entity) or a prefix + entity type.
+Every token gets exactly one label. The label is either `O` (not an entity) or a prefix + entity type. **MN: does this necessarily mean that each word is a token? My understanding of LLMs is that they tokenize in chunks of words.**
 
 **Prefixes:**
 
@@ -76,7 +76,7 @@ Every token gets exactly one label. The label is either `O` (not an entity) or a
 - Physical actions: "told", "sent", "cancelled", "moved"
 - Communication: "asked", "mentioned", "texted", "emailed"
 - Planning: "planned", "scheduled", "decided", "agreed"
-- Do NOT tag generic verbs like "was", "had", "is", "went" unless they carry specific meaning
+- Do NOT tag generic verbs like "was", "had", "is", "went" unless they carry specific meaning **what does specific meaning mean?**
 
 **Examples:**
 
@@ -95,13 +95,13 @@ Every token gets exactly one label. The label is either `O` (not an entity) or a
 
 **What it tags:** The informational payload — what was said, decided, or is being referred to.
 
-**Tag as CONTENT:**
+**Tag as CONTENT:** by I-CONTENT
+
 
 - Objects of actions: "the meeting", "the report", "the deadline"
 - Specific information: "the meeting was at 3pm", "the project timeline"
 - Key-value style info: "room 204", "next Tuesday"
-- This is often multi-word — use B-CONTENT followed by I-CONTENT
-
+- This is often multi-word — use B-CONTENT followed
 **Examples:**
 
 

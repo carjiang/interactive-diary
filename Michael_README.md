@@ -14,6 +14,13 @@ docker run your_username/your_docker_image_respository \
     python -m pytest tests/test_whisper.py
 ```
 
+# Generate Synthetic Diary Dataset
+Modify the location and number of entries generated in `data/gen_diary.py`
+```bash
+docker run --env-file .env -v $(pwd):/app -w /app mikono/id  \
+    python data/gen_diary.py
+```
+
 # Run LLM Test
 1. First, set up a `.env` file containing the following
 ```bash

@@ -17,7 +17,10 @@ RUN pip install --no-cache-dir torch torchvision torchaudio -f https://download.
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Set working directory and Python path so local packages are importable
+WORKDIR /app
+ENV PYTHONPATH=/app
 
 # Copy in the source code
-COPY . .
+COPY . /app
 
