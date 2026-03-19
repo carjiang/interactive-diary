@@ -112,10 +112,10 @@ def _run_inference(
     probs = F.softmax(emissions[0, : len(tokens)], dim=-1)
 
     return [
-        NERPrediction(
-            token=tokens[i],
-            label=ID_TO_LABEL.get(tid, "O"),
-            score=float(probs[i, tid].item()),
+            NERPrediction(
+                token=tokens[i],
+                label=ID_TO_LABEL.get(tid, "O"),
+                score=float(probs[i, tid].item()),
         )
         for i, tid in enumerate(tag_ids)
     ]
