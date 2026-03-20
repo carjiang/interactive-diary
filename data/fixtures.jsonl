@@ -1,0 +1,5 @@
+{"tokens": ["I", "told", "Sarah", "about", "the", "meeting"], "bio_tags": ["B-PARTICIPANT", "B-ACTION", "B-PARTICIPANT", "O", "B-CONTENT", "I-CONTENT"]}
+{"tokens": ["After", "lunch", "I", "noticed", "the", "schedule", "had", "changed", "to", "4pm"], "bio_tags": ["B-TEMPORAL", "I-TEMPORAL", "B-PARTICIPANT", "B-PERCEPTION", "B-CONTENT", "I-CONTENT", "I-CONTENT", "I-CONTENT", "I-CONTENT", "I-CONTENT"]}
+{"tokens": ["I", "thought", "Sarah", "saw", "the", "updated", "memo"], "bio_tags": ["B-PARTICIPANT", "B-BELIEF_CUE", "B-PARTICIPANT", "B-PERCEPTION", "B-CONTENT", "I-CONTENT", "I-CONTENT"]}
+{"tokens": ["Then", "Jake", "and", "I", "planned", "the", "demo", "for", "Friday", "morning"], "bio_tags": ["B-TEMPORAL", "B-PARTICIPANT", "O", "B-PARTICIPANT", "B-ACTION", "B-CONTENT", "I-CONTENT", "I-CONTENT", "B-TEMPORAL", "I-TEMPORAL"]}
+{"tokens": ["It", "was", "a", "normal", "day"], "bio_tags": ["O", "O", "O", "O", "O"]}
