@@ -6,7 +6,7 @@ import re
 from extractor.schema import DiarySample
 
 FILENAME = 'data/synth_diary.jsonl'
-ENTRIES = 10
+ENTRIES = 100
 
 # create a diary sample which is a list of NERSamples as well as a correct ordering of the events in the diary entry. This will be used to train the LLM to generate NERSamples from raw diary entries.
 
@@ -20,7 +20,7 @@ def gen_one_entry(sentences=3, actors=2):
     client = OpenAI()
     attempts = 1
     while True:
-        if attempts > 3:
+        if attempts > 10:
             raise RuntimeError(
                 f"Failed to generate a valid diary entry after {attempts-1} attempts.")
         try:
