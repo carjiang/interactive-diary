@@ -20,12 +20,12 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from extractor.schema import NERSample, SampleOrdering
+from extractor.schema import DiarySample, NERSample
 
 logger = logging.getLogger(__name__)
 
 
-def load_dataset(path: str | Path, *, strict: bool = True) -> list[NERSample]:
+def load_dataset(path: str | Path, *, strict: bool = True) -> list[DiarySample]:
     """Read a JSONL file and return validated NERSample objects.
 
     Args:
@@ -37,8 +37,7 @@ def load_dataset(path: str | Path, *, strict: bool = True) -> list[NERSample]:
     if not path.exists():
         raise FileNotFoundError(f"Dataset file not found: {path}")
 
-    ordering: SampleOrdering | None = None
-    samples: list[NERSample] = []
+    samples: list[DiarySample] = []
     num_errors = 0
 
     with path.open("r", encoding="utf-8") as f:
@@ -58,10 +57,7 @@ def load_dataset(path: str | Path, *, strict: bool = True) -> list[NERSample]:
                 continue
 
             try:
-                if line_num == 0:
-                    ordering = SampleOrdering(**obj)
-                else:
-                    samples.append(NERSample(**obj))
+                samples.append(DiarySample(**obj))
             except ValidationError as e:
                 msg = f"Line {line_num}: validation failed —\n{e}"
                 if strict:
@@ -75,4 +71,4 @@ def load_dataset(path: str | Path, *, strict: bool = True) -> list[NERSample]:
     if num_errors:
         logger.warning("Skipped %d invalid line(s) in %s", num_errors, path)
 
-    return ordering, samples
+    return samples
