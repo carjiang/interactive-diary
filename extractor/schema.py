@@ -28,7 +28,8 @@ class TextSpan(BaseModel):
 
 class Event(BaseModel):
     """A single structured event extracted from a diary entry."""
-    eid: int = Field(..., ge=0, description="Ordered event index within the entry")
+    eid: int = Field(..., ge=0,
+                     description="Ordered event index within the entry")
     participants: list[str] = Field(
         ..., min_length=1,
         description='People involved — use "ME" for the diary author',
@@ -83,18 +84,31 @@ LABEL_TO_ID: dict[str, int] = {label: i for i, label in enumerate(BIO_LABELS)}
 ID_TO_LABEL: dict[int, str] = dict(enumerate(BIO_LABELS))
 
 
-class SampleOrdering(BaseModel):
-    """Metadata line for the diary entry sample, indicating sentence count and correct ordering."""
-    num_sentences: int = Field(..., ge=1)
-    correct_ordering: list[int] = Field(..., min_length=1)
+class DiarySample(BaseModel):
+    """A training sample for the diary event extraction task."""
+    entry_id: str = Field(default_factory=lambda: str(uuid4()))
+    entry_timestamp: datetime = Field(
+        default_factory=lambda: datetime.now)
+    raw_text: str
+    nersamples: list[NERSample] = Field(default_factory=list)
+    sentence_ordering: list[int] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def _validate_ordering(self) -> SampleOrdering:
-        if sorted(self.correct_ordering) != list(range(1, self.num_sentences + 1)):
-            raise ValueError(
-                f"correct_ordering must be a permutation of [1, ..., {self.num_sentences}]"
-            )
+    def _validate_diary_sample(self) -> DiarySample:
+        if not self.raw_text or not self.raw_text.strip():
+            raise ValueError("raw_text must not be empty")
+
+        if self.sentence_ordering:
+            if len(self.sentence_ordering) != len(self.nersamples):
+                raise ValueError(
+                    "sentence_ordering length must match nersamples length"
+                )
+            if sorted(self.sentence_ordering) != list(range(1, len(self.nersamples)+1)):
+                raise ValueError(
+                    "sentence_ordering must be a permutation of [1, 2, ..., len(nersamples)]"
+                )
         return self
+
 
 class NERSample(BaseModel):
     """One training sample: a pre-tokenised sentence with BIO tags."""
@@ -153,7 +167,8 @@ class NERConfig(BaseModel):
     )
 
     # Training
-    learning_rate: float = Field(default=5e-5, gt=0, description="LR for BERT backbone")
+    learning_rate: float = Field(
+        default=5e-5, gt=0, description="LR for BERT backbone")
     head_learning_rate: float = Field(
         default=1e-3, gt=0,
         description="LR for randomly initialised layers (classifier + CRF)",
