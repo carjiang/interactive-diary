@@ -147,6 +147,31 @@ class NERSample(BaseModel):
         return self
 
 
+class DiarySample(BaseModel):
+    """A full synthetic diary entry with sentence-level NER annotations."""
+    entry_id: str = Field(default_factory=lambda: str(uuid4()))
+    entry_timestamp: datetime = Field(default_factory=datetime.now)
+    raw_text: str
+    nersamples: list[NERSample] = Field(default_factory=list)
+    sentence_ordering: list[int] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _validate_diary_sample(self) -> DiarySample:
+        if not self.raw_text or not self.raw_text.strip():
+            raise ValueError("raw_text must not be empty")
+        if self.sentence_ordering:
+            if len(self.sentence_ordering) != len(self.nersamples):
+                raise ValueError(
+                    "sentence_ordering length must match nersamples length"
+                )
+            expected = list(range(1, len(self.nersamples) + 1))
+            if sorted(self.sentence_ordering) != expected:
+                raise ValueError(
+                    "sentence_ordering must be a permutation of [1..len(nersamples)]"
+                )
+        return self
+
+
 class NERConfig(BaseModel):
     """Full configuration for the BERT + CRF NER pipeline."""
 
