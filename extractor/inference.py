@@ -344,6 +344,37 @@ def assign_temporal_order(entries: list[DiaryEntry]) -> list[DiaryEntry]:
     return entries
 
 
+def reorder_events_by_sentence_ordering(
+    entry: DiaryEntry,
+    sentence_ordering: list[int],
+) -> DiaryEntry:
+    """Re-assign event eids to match chronological sentence ordering.
+
+    *sentence_ordering* is a permutation like [2, 1, 3] meaning the
+    first sentence in the text is chronologically 2nd, etc.  Events
+    are re-numbered so eid reflects chronological order rather than
+    textual position.
+    """
+    if not sentence_ordering or not entry.events:
+        return entry
+
+    inverse = sorted(range(len(sentence_ordering)),
+                     key=lambda i: sentence_ordering[i])
+
+    old_events = {ev.eid: ev for ev in entry.events}
+    reordered: list[Event] = []
+    new_eid = 0
+    for text_idx in inverse:
+        if text_idx in old_events:
+            ev = old_events[text_idx].model_copy()
+            ev.eid = new_eid
+            new_eid += 1
+            reordered.append(ev)
+
+    entry.events = reordered
+    return entry
+
+
 def extract_events(
     text: str,
     model: BertCRFForNER,

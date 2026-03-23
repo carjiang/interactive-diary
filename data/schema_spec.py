@@ -1,15 +1,11 @@
 """
 Data-loading contract for NER training samples.
 
-Reads JSONL files and validates each line against ``NERSample``
-(defined in extractor.schema).  The data engineer producing synthetic
-samples should validate against NERSample before delivering data.
+Reads JSONL files in either format:
+  - Flat NERSample:  {"tokens": [...], "bio_tags": [...]}
+  - DiarySample:     {"raw_text": "...", "nersamples": [...], ...}
 
-Expected file format — one JSON object per line:
-    First Line:
-        {"num_sentences" : 5, "correct_ordering": [5, 4, 1, 2, 3] }
-    All Following Lines:
-    {"tokens": ["I", "told", "Sarah", ...], "bio_tags": ["B-PARTICIPANT", "B-ACTION", "B-PARTICIPANT", ...]}
+Always returns a flat list of NERSample objects for training.
 """
 
 from __future__ import annotations
@@ -25,19 +21,17 @@ from extractor.schema import DiarySample, NERSample
 logger = logging.getLogger(__name__)
 
 
-def load_dataset(path: str | Path, *, strict: bool = True) -> list[DiarySample]:
+def load_dataset(path: str | Path, *, strict: bool = True) -> list[NERSample]:
     """Read a JSONL file and return validated NERSample objects.
 
-    Args:
-        path:   Path to a JSONL file.
-        strict: If True (default), raise on the first invalid line.
-                If False, skip bad lines and log warnings.
+    Accepts both flat NERSample lines and nested DiarySample lines
+    (auto-detected per line). DiarySample entries are flattened.
     """
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"Dataset file not found: {path}")
 
-    samples: list[DiarySample] = []
+    samples: list[NERSample] = []
     num_errors = 0
 
     with path.open("r", encoding="utf-8") as f:
@@ -57,7 +51,17 @@ def load_dataset(path: str | Path, *, strict: bool = True) -> list[DiarySample]:
                 continue
 
             try:
-                samples.append(DiarySample(**obj))
+                if "nersamples" in obj:
+                    entry = DiarySample(**obj)
+                    samples.extend(entry.nersamples)
+                elif "tokens" in obj and "bio_tags" in obj:
+                    samples.append(NERSample(**obj))
+                else:
+                    msg = f"Line {line_num}: unrecognized format (need 'tokens'+'bio_tags' or 'nersamples')"
+                    if strict:
+                        raise ValueError(msg)
+                    logger.warning(msg)
+                    num_errors += 1
             except ValidationError as e:
                 msg = f"Line {line_num}: validation failed —\n{e}"
                 if strict:
