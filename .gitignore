@@ -3,15 +3,20 @@
 
 # virtual environments
 venv/
+.venv/
 
-# environemnt variables
+# environment variables
 .env
+.env.*
+
+# Claude Code local settings
+.claude/
 
 # temp files
 temp*
 */temp*
+
 # NER pipeline
-.venv/
 __pycache__/
 *.pyc
 *.pyo
@@ -25,6 +30,18 @@ checkpoints/
 *.pt
 *.bin
 
+# IDE
 .idea/
 .vscode/
 *.swp
+
+# test cache
+.pytest_cache/
+
+# large generated data files
+data/synth_diary_400.jsonl
+data/test_v1.jsonl
+data/train_*.jsonl
+
+# paper reference docs
+docs/

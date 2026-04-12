@@ -61,6 +61,10 @@ def _worker_init_fn(worker_id: int) -> None:
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Train BERT+CRF NER model")
     p.add_argument("--data", type=str, required=True, help="Path to JSONL training data")
+    p.add_argument("--extra-data", type=str, nargs="*", default=[],
+                   help="Additional JSONL paths merged into training data (loaded with strict=False)")
+    p.add_argument("--eval-file", type=str, default=None,
+                   help="Held-out test JSONL — evaluated once after training, never used for checkpointing")
     p.add_argument("--val-split", type=float, default=VAL_SPLIT)
     p.add_argument("--seed", type=int, default=SEED)
     p.add_argument("--epochs", type=int, default=EPOCHS)
@@ -79,10 +83,14 @@ def parse_args() -> argparse.Namespace:
 
 
 def load_and_split(
-    path: str, val_split: float, seed: int,
+    path: str, val_split: float, seed: int, extra_paths: list[str] | None = None,
 ) -> tuple[list[NERSample], list[NERSample]]:
     samples = load_dataset(path)
     logger.info("Loaded %d samples from %s", len(samples), path)
+    for ep in (extra_paths or []):
+        extra = load_dataset(ep, strict=False)
+        logger.info("Loaded %d extra samples from %s", len(extra), ep)
+        samples.extend(extra)
 
     if len(samples) < 2:
         raise ValueError(
@@ -180,7 +188,7 @@ def main() -> None:
         num_epochs=args.epochs,
     )
 
-    train_samples, val_samples = load_and_split(args.data, args.val_split, args.seed)
+    train_samples, val_samples = load_and_split(args.data, args.val_split, args.seed, args.extra_data)
 
     tokenizer = BertTokenizerFast.from_pretrained(cfg.model_name)
     train_ds = NERDataset(train_samples, tokenizer, cfg.max_seq_length)
@@ -265,8 +273,13 @@ def main() -> None:
         true_tags, pred_tags = collect_predictions(model, val_loader, device)
 
         report = classification_report(true_tags, pred_tags, zero_division=0)
+        report_dict = classification_report(true_tags, pred_tags, zero_division=0, output_dict=True)
         epoch_f1 = f1_score(true_tags, pred_tags, zero_division=0)
-        logger.info("Val F1: %.4f\n%s", epoch_f1, report)
+        entity_f1_str = "  ".join(
+            f"{e}={report_dict.get(e, {}).get('f1-score', 0.0):.3f}"
+            for e in ["PARTICIPANT", "ACTION", "CONTENT", "BELIEF_CUE", "TEMPORAL", "PERCEPTION"]
+        )
+        logger.info("Val F1: %.4f  [%s]\n%s", epoch_f1, entity_f1_str, report)
 
         if epoch_f1 > best_f1:
             best_f1 = epoch_f1
@@ -284,6 +297,19 @@ def main() -> None:
         "Done. Best val F1: %.4f at epoch %d. Checkpoint: %s/",
         best_f1, best_epoch, ckpt_dir,
     )
+
+    if args.eval_file:
+        logger.info("Running held-out test evaluation on %s", args.eval_file)
+        test_samples = load_dataset(args.eval_file)
+        test_ds = NERDataset(test_samples, tokenizer, cfg.max_seq_length)
+        test_loader = DataLoader(test_ds, batch_size=cfg.batch_size, shuffle=False)
+        model.load_state_dict(
+            torch.load(ckpt_dir / "model.pt", map_location=device, weights_only=True)
+        )
+        true_tags, pred_tags = collect_predictions(model, test_loader, device)
+        test_f1 = f1_score(true_tags, pred_tags, zero_division=0)
+        test_report = classification_report(true_tags, pred_tags, zero_division=0)
+        logger.info("TEST F1: %.4f\n%s", test_f1, test_report)
 
 
 if __name__ == "__main__":
