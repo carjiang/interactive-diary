@@ -9,6 +9,7 @@ NERSample: data-format contract for the training JSONL.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, model_validator
@@ -37,6 +38,14 @@ class Event(BaseModel):
     actor: str
     action: str
     content: str
+    sentence_type: Literal["state", "action"] = Field(
+        ...,
+        description=(
+            "ThoughtTracing trajectory classification: 'action' if this sentence "
+            "contains a physical movement or utterance by the target agent; "
+            "'state' for world/environment descriptions and agent characteristics."
+        ),
+    )
     belief_cue: bool = Field(
         ...,
         description="True if event concerns a mental state or uncertain info",
@@ -58,6 +67,14 @@ class DiaryEntry(BaseModel):
     entry_id: str = Field(default_factory=lambda: str(uuid4()))
     entry_timestamp: datetime
     raw_text: str
+    target_agent: str | None = Field(
+        default=None,
+        description=(
+            "The agent whose mental states ThoughtTracing will trace — "
+            "corresponds to agent A in TRACE(text_c, A). Use 'ME' for the "
+            "diary author, or the agent's name for third-party traces."
+        ),
+    )
     events: list[Event] = Field(default_factory=list)
     source_entry_id: str | None = Field(
         default=None,
