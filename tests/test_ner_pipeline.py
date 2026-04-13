@@ -26,6 +26,7 @@ from extractor.inference import (
     _fallback_single_event,
     _normalize_participant,
     assign_temporal_order,
+    reorder_events_by_sentence_ordering,
     tokenize_raw,
 )
 
@@ -393,6 +394,63 @@ class TestAssignTemporalOrder:
 # ---------------------------------------------------------------------------
 # DiaryEntry / Event serialization round-trip
 # ---------------------------------------------------------------------------
+
+class TestReorderEventsBySentenceOrdering:
+    def _make_entry(self, n_events: int) -> DiaryEntry:
+        events = [
+            Event(
+                eid=i,
+                participants=["ME"],
+                actor="ME",
+                action=f"action_{i}",
+                content=f"content_{i}",
+                belief_cue=False,
+                confidence=0.9,
+            )
+            for i in range(n_events)
+        ]
+        return DiaryEntry(
+            entry_timestamp=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            raw_text="test",
+            events=events,
+        )
+
+    def test_identity_ordering(self):
+        entry = self._make_entry(3)
+        result = reorder_events_by_sentence_ordering(entry, [1, 2, 3])
+        actions = [e.action for e in result.events]
+        assert actions == ["action_0", "action_1", "action_2"]
+        assert [e.eid for e in result.events] == [0, 1, 2]
+
+    def test_reversed_ordering(self):
+        entry = self._make_entry(3)
+        # [3, 2, 1] means: text sentence 0 is chronologically 3rd,
+        # sentence 1 is 2nd, sentence 2 is 1st
+        result = reorder_events_by_sentence_ordering(entry, [3, 2, 1])
+        actions = [e.action for e in result.events]
+        assert actions == ["action_2", "action_1", "action_0"]
+
+    def test_partial_swap(self):
+        entry = self._make_entry(4)
+        # [2, 1, 3, 4] — first two sentences are chronologically swapped
+        result = reorder_events_by_sentence_ordering(entry, [2, 1, 3, 4])
+        actions = [e.action for e in result.events]
+        assert actions == ["action_1", "action_0", "action_2", "action_3"]
+
+    def test_empty_ordering(self):
+        entry = self._make_entry(2)
+        result = reorder_events_by_sentence_ordering(entry, [])
+        assert len(result.events) == 2
+
+    def test_empty_events(self):
+        entry = DiaryEntry(
+            entry_timestamp=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            raw_text="test",
+            events=[],
+        )
+        result = reorder_events_by_sentence_ordering(entry, [1, 2])
+        assert result.events == []
+
 
 class TestSerialization:
     def test_diary_entry_roundtrip(self):

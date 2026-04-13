@@ -84,7 +84,7 @@ Every token gets exactly one label. The label is either `O` (not an entity) or a
 | Tokens              | Tags                                                                |
 | ------------------- | ------------------------------------------------------------------- |
 | `told`              | `B-ACTION`                                                          |
-| `sent` `an` `email` | `B-ACTION` `O` `O` — only the verb is ACTION, "an email" is CONTENT |
+| `sent` `an` `email` | `B-ACTION` `B-CONTENT` `I-CONTENT` — verb is ACTION, object is CONTENT |
 | `called` `off`      | `B-ACTION` `I-ACTION` — phrasal verb                                |
 | `set` `up`          | `B-ACTION` `I-ACTION` — phrasal verb                                |
 
@@ -191,6 +191,8 @@ Every token gets exactly one label. The label is either `O` (not an entity) or a
 | `noticed`     | `B-PERCEPTION`                |
 | `overheard`   | `B-PERCEPTION`                |
 | `looked` `at` | `B-PERCEPTION` `I-PERCEPTION` |
+| `noticed` `the` `door` `was` `open` | `B-PERCEPTION` `B-CONTENT` `I-CONTENT` `I-CONTENT` `I-CONTENT` — perceived object/event is CONTENT |
+| `saw` `Sarah` | `B-PERCEPTION` `B-PARTICIPANT` — perceived person is PARTICIPANT, not CONTENT |
 
 
 ---

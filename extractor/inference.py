@@ -273,6 +273,7 @@ def _assemble_events(
             actor=actor,
             action=action_span.text,
             content=content,
+            sentence_type="action",
             belief_cue=has_belief_cue,
             confidence=round(confidence, 4),
             text_span=TextSpan(start=char_min, end=char_max),
@@ -325,6 +326,7 @@ def _fallback_single_event(spans: list[_Span], raw_text: str) -> list[Event]:
         actor=participants[0],
         action=action or "unknown",
         content=" ".join(content_parts) if content_parts else raw_text,
+        sentence_type="state",  # no ACTION/PERCEPTION spans found — this is a state sentence
         belief_cue=has_belief_cue,
         confidence=round(sum(all_scores) / len(all_scores), 4) if all_scores else 0.0,
         text_span=TextSpan(start=char_min, end=char_max),
@@ -342,6 +344,37 @@ def assign_temporal_order(entries: list[DiaryEntry]) -> list[DiaryEntry]:
             event.temporal_order = counter
             counter += 1
     return entries
+
+
+def reorder_events_by_sentence_ordering(
+    entry: DiaryEntry,
+    sentence_ordering: list[int],
+) -> DiaryEntry:
+    """Re-assign event eids to match chronological sentence ordering.
+
+    *sentence_ordering* is a permutation like [2, 1, 3] meaning the
+    first sentence in the text is chronologically 2nd, etc.  Events
+    are re-numbered so eid reflects chronological order rather than
+    textual position.
+    """
+    if not sentence_ordering or not entry.events:
+        return entry
+
+    inverse = sorted(range(len(sentence_ordering)),
+                     key=lambda i: sentence_ordering[i])
+
+    old_events = {ev.eid: ev for ev in entry.events}
+    reordered: list[Event] = []
+    new_eid = 0
+    for text_idx in inverse:
+        if text_idx in old_events:
+            ev = old_events[text_idx].model_copy()
+            ev.eid = new_eid
+            new_eid += 1
+            reordered.append(ev)
+
+    entry.events = reordered
+    return entry
 
 
 def extract_events(

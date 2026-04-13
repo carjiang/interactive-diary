@@ -64,6 +64,57 @@ class TestLoadDataset:
             assert len(samples) == 1
 
 
+class TestLoadDiarySampleFormat:
+    def test_loads_diary_sample_and_flattens(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+            entry = {
+                "raw_text": "I told Sarah. She replied.",
+                "nersamples": [
+                    {"tokens": ["I", "told", "Sarah."], "bio_tags": ["B-PARTICIPANT", "B-ACTION", "B-PARTICIPANT"]},
+                    {"tokens": ["She", "replied."], "bio_tags": ["B-PARTICIPANT", "B-ACTION"]},
+                ],
+                "sentence_ordering": [1, 2],
+            }
+            f.write(json.dumps(entry) + "\n")
+            f.flush()
+            samples = load_dataset(f.name)
+            assert len(samples) == 2
+            assert samples[0].tokens == ["I", "told", "Sarah."]
+            assert samples[1].tokens == ["She", "replied."]
+
+    def test_loads_mixed_formats(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+            f.write(json.dumps({"tokens": ["hello"], "bio_tags": ["O"]}) + "\n")
+            entry = {
+                "raw_text": "Test entry.",
+                "nersamples": [
+                    {"tokens": ["Test", "entry."], "bio_tags": ["O", "O"]},
+                ],
+                "sentence_ordering": [1],
+            }
+            f.write(json.dumps(entry) + "\n")
+            f.flush()
+            samples = load_dataset(f.name)
+            assert len(samples) == 2
+
+    def test_loads_synth_diary_10(self):
+        samples = load_dataset("data/synth_diary_10.jsonl")
+        assert len(samples) > 0
+        for s in samples:
+            assert len(s.tokens) == len(s.bio_tags)
+
+    def test_loads_synth_diary_100(self):
+        samples = load_dataset("data/synth_diary_100.jsonl")
+        assert len(samples) == 417
+
+    def test_unrecognized_format_strict(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+            f.write(json.dumps({"foo": "bar"}) + "\n")
+            f.flush()
+            with pytest.raises(ValueError, match="unrecognized format"):
+                load_dataset(f.name, strict=True)
+
+
 class TestFixturesIntegrity:
     """Validate every sample in fixtures.jsonl matches the schema spec."""
 

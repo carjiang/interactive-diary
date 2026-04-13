@@ -9,6 +9,7 @@ NERSample: data-format contract for the training JSONL.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, model_validator
@@ -37,6 +38,14 @@ class Event(BaseModel):
     actor: str
     action: str
     content: str
+    sentence_type: Literal["state", "action"] = Field(
+        ...,
+        description=(
+            "ThoughtTracing trajectory classification: 'action' if this sentence "
+            "contains a physical movement or utterance by the target agent; "
+            "'state' for world/environment descriptions and agent characteristics."
+        ),
+    )
     belief_cue: bool = Field(
         ...,
         description="True if event concerns a mental state or uncertain info",
@@ -58,6 +67,14 @@ class DiaryEntry(BaseModel):
     entry_id: str = Field(default_factory=lambda: str(uuid4()))
     entry_timestamp: datetime
     raw_text: str
+    target_agent: str | None = Field(
+        default=None,
+        description=(
+            "The agent whose mental states ThoughtTracing will trace — "
+            "corresponds to agent A in TRACE(text_c, A). Use 'ME' for the "
+            "diary author, or the agent's name for third-party traces."
+        ),
+    )
     events: list[Event] = Field(default_factory=list)
     source_entry_id: str | None = Field(
         default=None,
@@ -144,6 +161,31 @@ class NERSample(BaseModel):
                         f"I-{entity} must follow B-{entity} or I-{entity}"
                     )
 
+        return self
+
+
+class DiarySample(BaseModel):
+    """A full synthetic diary entry with sentence-level NER annotations."""
+    entry_id: str = Field(default_factory=lambda: str(uuid4()))
+    entry_timestamp: datetime = Field(default_factory=datetime.now)
+    raw_text: str
+    nersamples: list[NERSample] = Field(default_factory=list)
+    sentence_ordering: list[int] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _validate_diary_sample(self) -> DiarySample:
+        if not self.raw_text or not self.raw_text.strip():
+            raise ValueError("raw_text must not be empty")
+        if self.sentence_ordering:
+            if len(self.sentence_ordering) != len(self.nersamples):
+                raise ValueError(
+                    "sentence_ordering length must match nersamples length"
+                )
+            expected = list(range(1, len(self.nersamples) + 1))
+            if sorted(self.sentence_ordering) != expected:
+                raise ValueError(
+                    "sentence_ordering must be a permutation of [1..len(nersamples)]"
+                )
         return self
 
 
