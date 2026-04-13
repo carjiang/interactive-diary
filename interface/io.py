@@ -37,18 +37,3 @@ def generate_response(diary_text, output_path):
 def save_text_to_speech(text, output_path, lang="en"):
     tts = gTTS(text=text, lang=lang)
     tts.save(output_path)
-
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--text", default="hello")
-    parser.add_argument("--output", default="/app/tts_output.mp3")
-    parser.add_argument("--lang", default="en")
-    args = parser.parse_args()
-
-    save_text_to_speech(args.text, args.output, args.lang)
-    print(f"Saved speech to {args.output}")
-
-
-if __name__ == "__main__":
-    main()
