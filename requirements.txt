@@ -1,6 +1,12 @@
 pytest
+
+# audio input/output
 openai
 openai-whisper
+numpy
+sounddevice
+gTTS
+pygame
 
 # NER extraction pipeline
 torch>=2.0.0

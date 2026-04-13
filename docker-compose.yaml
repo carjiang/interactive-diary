@@ -1,0 +1,12 @@
+services:
+  app:
+    build: .
+    container_name: interactive-diary
+    command: sleep infinity  
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    stdin_open: true      # -i

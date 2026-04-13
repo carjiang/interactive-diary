@@ -1,15 +1,26 @@
-# Set up Docker
-1. Run Docker on your computer
-1. Build docker image `docker build -t your_username/your_docker_image_repository .`
-1. Run docker image followed by command. E.g. if you want to run a test: 
+# Run the program
 ```bash
-docker run your_username/your_docker_image_respository \
-    python python_file_you_want_to_run_in_container.py
+# Build and start
+docker compose up --build
+
+# Open a shell inside the container
+docker compose exec app bash
+
+# Stop and remove containers
+docker compose down
+docker compose down -v
 ```
-1. When you want to save your image, push image to your Docker Hub with `docker push your_username/your_docker_image_repository`
+
+1. First run `docker compose up --build`
+
+2. Then in another terminal, install requirements from host_requirements.txt
+and run `python host_tests/diary.py`
+
+When you want to save your image, push image to your Docker Hub with `docker push your_username/your_docker_image_repository`
 
 # Run Docker Test
 ```bash
+docker build -t mikono/id .
 docker run your_username/your_docker_image_respository \
     python -m pytest tests/test_whisper.py
 ```
