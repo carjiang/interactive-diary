@@ -21,8 +21,7 @@ def audio_to_text(audio_file, output_path):
     audio_mono = audio.flatten().astype(np.float32)
     model = whisper.load_model("base", download_root="/app/models")
 
-    result = model.transcribe(audio_mono, fp16=False,
-                              condition_on_previous_text=False)
+    result = model.transcribe(audio_mono, fp16=False, condition_on_previous_text=False)
     with open(output_path, 'w') as f:
         f.write(result["text"])
 
