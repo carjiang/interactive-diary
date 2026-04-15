@@ -13,7 +13,7 @@ docker compose exec -T app [command]
 1. First run `docker compose up --build`
 
 2. Then in another terminal, install requirements from host_requirements.txt
-and run `python host_tests/diary.py`
+and run `python interface/mvp.py`
 
 When you want to save your image, push image to your Docker Hub with `docker push your_username/your_docker_image_repository`
 
