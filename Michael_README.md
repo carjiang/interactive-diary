@@ -6,10 +6,6 @@ docker compose up --build
 # Open a shell inside the container
 docker compose exec app bash
 
-# Stop and remove containers
-docker compose down
-docker compose down -v
-
 # Run command in container
 docker compose exec -T app [command]
 ```

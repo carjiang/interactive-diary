@@ -26,13 +26,6 @@ def audio_to_text(audio_file, output_path):
         f.write(result["text"])
 
 
-def generate_response(diary_text, output_path):
-    # insert some call to model
-    response = "This is a response to your diary entry!"
-    with open(output_path, 'w') as f:
-        f.write(response)
-
-
 def save_text_to_speech(text, output_path, lang="en"):
     tts = gTTS(text=text, lang=lang)
     tts.save(output_path)
