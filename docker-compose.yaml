@@ -8,5 +8,7 @@ services:
     environment:
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
+    env_file:
+      - .env
     restart: unless-stopped
     stdin_open: true      # -i

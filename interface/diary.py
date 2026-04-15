@@ -3,6 +3,7 @@ import os
 import subprocess
 import time
 import tempfile
+import json
 import numpy as np
 import sounddevice as sd
 from gtts import gTTS
@@ -43,21 +44,21 @@ def speak(text):
         tts(text, tmp.name)
         play_audio(tmp.name)
 
+
 # records audio from microphone and save to numpy file
 
 
 def record_and_save(output_path):
-    try:
-        audio = sd.rec(int(DURATION * SAMPLERATE),
-                       samplerate=SAMPLERATE, channels=CHANNELS)
+    audio = sd.rec(int(DURATION * SAMPLERATE),
+                   samplerate=SAMPLERATE, channels=CHANNELS)
 
-        sd.wait()
-        print("Recording stopped after 10 minutes.")
+    try:
+        while sd.get_stream().active:
+            sd.sleep(100)  # sleep in ms, gives Python time to handle signals
+        print("\nRecording stopped after 10 minutes.")
     except KeyboardInterrupt:
         sd.stop()
         print("\nRecording stopped by user.")
-        if SPEECH_ENABLED:
-            speak("Recording stopped by user.")
 
     np.save(output_path, audio)
 
@@ -96,19 +97,20 @@ def stt():
     return text
 
 
-# def get_response_container(text):
-#     with tempfile.NamedTemporaryFile(suffix=".txt", dir=".") as tmp:
-#         output_path = tmp.name
-#         _, container_output = get_container_path(output_path)
-#         subprocess.run([
-#             "docker", "compose", "exec", "-T", "app",
-#             "python", "-c",
-#             f"from interface.io import generate_response; generate_response('{text}','{container_output}')"
-#         ], check=True, stdout=subprocess.DEVNULL)  # hide standard output
+def gpt_diary_response(text):
+    with tempfile.NamedTemporaryFile(suffix=".txt", dir=".") as tmp:
+        output_path = tmp.name
+        _, container_output = get_container_path(output_path)
+        subprocess.run([
+            "docker", "compose", "exec", "-T", "app",
+            "python", "-c",
+            f"from interface.io import generate_gpt_response; generate_gpt_response({json.dumps(text)}, {json.dumps(container_output)})"
+        ], check=True, stdout=subprocess.DEVNULL)  # hide standard output
 
-#         with open(output_path, 'r') as f:
-#             response = f.read().strip()
-#     return response
+        with open(output_path, 'r') as f:
+            response = f.read().strip()
+    return response
+
 
 def start_diary(speech_enabled=True):
     SPEECH_ENABLED = speech_enabled
@@ -129,12 +131,16 @@ def get_entry(speech_enabled=True):
         print("Your diary entry: " + text)
     else:
         text = input("Your diary entry: ")
+
+    # text formatting?
     return text
 
 
 def put_reply(text, speech_enabled=True):
     SPEECH_ENABLED = speech_enabled
-    print_section("Thanks for sharing! Here's my response:")
+    print_section("Thanks for sharing! Here's my response:\n")
+    if SPEECH_ENABLED:
+        speak("Thanks for sharing! Here's my response:")
     print(text)
     if SPEECH_ENABLED:
         speak(text)
@@ -148,7 +154,7 @@ def main():
     SPEECH_ENABLED = not args.text
 
     start_diary()
-    get_entry() 
+    get_entry()
     put_reply("This is a response to your diary entry!")
 
 
