@@ -1,6 +1,7 @@
 services:
   app:
-    build: .
+    build: 
+      context: "."
     container_name: interactive-diary
     command: sleep infinity  
     volumes:

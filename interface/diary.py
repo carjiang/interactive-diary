@@ -131,7 +131,6 @@ def get_entry(speech_enabled=True):
         print("Your diary entry: " + text)
     else:
         text = input("Your diary entry: ")
-
     # text formatting?
     return text
 
@@ -141,9 +140,10 @@ def put_reply(text, speech_enabled=True):
     print_section("Thanks for sharing! Here's my response:\n")
     if SPEECH_ENABLED:
         speak("Thanks for sharing! Here's my response:")
-    print(text)
-    if SPEECH_ENABLED:
-        speak(text)
+    for line in text.splitlines():
+        print(line)
+        if SPEECH_ENABLED and line.strip() != "":
+            speak(line)
 
 
 def main():
