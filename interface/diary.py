@@ -52,15 +52,19 @@ def record_and_save(output_path):
     audio = sd.rec(int(DURATION * SAMPLERATE),
                    samplerate=SAMPLERATE, channels=CHANNELS)
 
+    recorded_frames = 0
     try:
         while sd.get_stream().active:
-            sd.sleep(100)  # sleep in ms, gives Python time to handle signals
+            recorded_frames = sd.get_stream().read_frames
+            sd.sleep(100)
+        recorded_frames = int(DURATION * SAMPLERATE)
         print("\nRecording stopped after 10 minutes.")
     except KeyboardInterrupt:
+        recorded_frames = sd.get_stream().read_frames
         sd.stop()
         print("\nRecording stopped by user.")
 
-    np.save(output_path, audio)
+    np.save(output_path, audio[:recorded_frames])
 
 
 # return (abs file path of host, container file path)
@@ -93,7 +97,15 @@ def stt():
         audio_path = tmp.name
         record_and_save(audio_path)
         print("Recording saved. Transcribing...")
-        text = stt_container(audio_path)
+        with tempfile.NamedTemporaryFile(suffix=".txt", dir=".", mode="w", delete=False) as out:
+            output_path = out.name
+        try:
+            from interface.io import audio_to_text
+            audio_to_text(audio_path, output_path)
+            with open(output_path, "r") as f:
+                text = f.read().strip()
+        finally:
+            os.remove(output_path)
     return text
 
 
