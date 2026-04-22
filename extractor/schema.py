@@ -67,6 +67,10 @@ class DiaryEntry(BaseModel):
     entry_id: str = Field(default_factory=lambda: str(uuid4()))
     entry_timestamp: datetime
     raw_text: str
+    user_id: str | None = Field(
+        default=None,
+        description="ID of the diary author. Set at ingestion time, not by the extractor.",
+    )
     target_agent: str | None = Field(
         default=None,
         description=(
@@ -99,32 +103,6 @@ BIO_LABELS: list[str] = ["O"] + [
 
 LABEL_TO_ID: dict[str, int] = {label: i for i, label in enumerate(BIO_LABELS)}
 ID_TO_LABEL: dict[int, str] = dict(enumerate(BIO_LABELS))
-
-
-class DiarySample(BaseModel):
-    """A training sample for the diary event extraction task."""
-    entry_id: str = Field(default_factory=lambda: str(uuid4()))
-    entry_timestamp: datetime = Field(
-        default_factory=lambda: datetime.now)
-    raw_text: str
-    nersamples: list[NERSample] = Field(default_factory=list)
-    sentence_ordering: list[int] = Field(default_factory=list)
-
-    @model_validator(mode="after")
-    def _validate_diary_sample(self) -> DiarySample:
-        if not self.raw_text or not self.raw_text.strip():
-            raise ValueError("raw_text must not be empty")
-
-        if self.sentence_ordering:
-            if len(self.sentence_ordering) != len(self.nersamples):
-                raise ValueError(
-                    "sentence_ordering length must match nersamples length"
-                )
-            if sorted(self.sentence_ordering) != list(range(1, len(self.nersamples)+1)):
-                raise ValueError(
-                    "sentence_ordering must be a permutation of [1, 2, ..., len(nersamples)]"
-                )
-        return self
 
 
 class NERSample(BaseModel):

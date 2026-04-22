@@ -17,8 +17,7 @@ def audio_to_text(audio_file, output_path):
     print(os.getcwd())
     audio = np.load(audio_file)
     audio_mono = audio.flatten().astype(np.float32)
-    _models_dir = os.path.join(os.path.dirname(__file__), "..", "models")
-    model = whisper.load_model("base", download_root=_models_dir)
+    model = whisper.load_model("base", download_root="/app/models")
 
     result = model.transcribe(audio_mono, fp16=False,
                               condition_on_previous_text=False)

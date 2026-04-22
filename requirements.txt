@@ -2,6 +2,8 @@ pytest
 
 # audio input/output
 openai
+faiss-cpu
+python-dotenv
 openai-whisper
 numpy
 sounddevice
