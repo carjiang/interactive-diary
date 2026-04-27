@@ -144,16 +144,6 @@ def put_reply(text, speech_enabled=True):
         print(line)
         if SPEECH_ENABLED and line.strip() != "":
             speak(line)
-            
-def ask_to_continue():
-    response = input("Would you like to continue the conversation? (y/n): ").strip().lower()
-    return response == 'y'
-
-def end_diary():
-    text = "Thanks for using Interactive Diary! Remember to fill out our survey form. See you next time!"
-    print_section(text)
-    if SPEECH_ENABLED:
-        speak(text)
 
 
 def main():
