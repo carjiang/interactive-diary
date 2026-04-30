@@ -14,7 +14,7 @@ RUN pip install --upgrade pip
 RUN pip install --no-cache-dir torch torchvision torchaudio -f https://download.pytorch.org/whl/torch_stable.html
 
 # Install the application dependencies
-COPY requirements.txt ./
+COPY docker_requirements.txt ./
 RUN pip install --no-cache-dir -r docker_requirements.txt
 
 # Set working directory and Python path so local packages are importable
