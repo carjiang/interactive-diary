@@ -146,6 +146,16 @@ def put_reply(text, speech_enabled=True):
         speak(text)
 
 
+def should_continue_diary():
+    keep_going = input(
+        "\nWould you like to write another entry? [Y/n]: ").strip().lower()
+    y = keep_going not in ("n", "no", "stop", "quit", "exit", "q")
+    if not y:
+        print_section("\nAu revoir! Your entries have been saved.\n")
+        speak("Au revoir! Your entries have been saved.")
+    return y
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--text", action="store_true",

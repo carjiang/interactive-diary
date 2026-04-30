@@ -17,6 +17,7 @@ temp*
 */temp*
 */tmp*
 tmp*
+*.faiss
 
 # NER pipeline
 __pycache__/
