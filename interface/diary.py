@@ -7,6 +7,8 @@ import json
 import numpy as np
 import sounddevice as sd
 from gtts import gTTS
+import queue
+import io
 
 
 import pygame
@@ -40,30 +42,62 @@ def print_section(text):
 
 
 def speak(text):
-    with tempfile.NamedTemporaryFile(suffix=".mp3") as tmp:
-        tts(text, tmp.name)
-        play_audio(tmp.name)
+    mp3_buffer = io.BytesIO()
+    gTTS(text=text, lang="en").write_to_fp(mp3_buffer)
+    mp3_buffer.seek(0)
+    pygame.mixer.init()
+    pygame.mixer.music.load(mp3_buffer, "mp3")
+    pygame.mixer.music.play()
+    while pygame.mixer.music.get_busy():
+        time.sleep(0.1)
 
 
 # records audio from microphone and save to numpy file
 
 
 def record_and_save(output_path):
-    audio = sd.rec(int(DURATION * SAMPLERATE),
-                   samplerate=SAMPLERATE, channels=CHANNELS)
+    q = queue.Queue()
+    recording = []
 
+    def callback(indata, frames, time_info, status):
+        if status:
+            print(status)
+        q.put(indata.copy())
+
+    print("Recording... Press Ctrl+C to stop.")
     try:
-        while sd.get_stream().active:
-            sd.sleep(100)  # sleep in ms, gives Python time to handle signals
-        print("\nRecording stopped after 10 minutes.")
+        with sd.InputStream(
+            samplerate=SAMPLERATE,
+            channels=CHANNELS,
+            callback=callback
+        ):
+            while True:
+                data = q.get()
+                recording.append(data)
     except KeyboardInterrupt:
-        sd.stop()
-        print("\nRecording stopped by user.")
+        print("\nStopped recording.")
+
+    # Keep any final chunks that were queued right before Ctrl+C.
+    while not q.empty():
+        recording.append(q.get_nowait())
+
+    if recording:
+        audio = np.concatenate(recording, axis=0)
+    else:
+        audio = np.empty((0, CHANNELS), dtype=np.float32)
 
     np.save(output_path, audio)
+    # play_recorded_audio(output_path)
 
+
+def play_recorded_audio(audio_path):
+    audio = np.load(audio_path).astype(np.float32)
+    sd.play(audio, samplerate=SAMPLERATE)
+    sd.wait()
 
 # return (abs file path of host, container file path)
+
+
 def get_container_path(filename):
     abs_output = os.path.abspath(filename)
     os.makedirs(os.path.dirname(abs_output), exist_ok=True)
