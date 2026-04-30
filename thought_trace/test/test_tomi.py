@@ -42,7 +42,8 @@ def main(args):
 
     agent = load_tracer_model(args=args)
 
-    batch = ['Elizabeth stepped into the hallway. Benjamin arrived at the hallway. The box has the persimmon. The box is positioned in the hallway. Elizabeth conveyed the persimmon to the treasure chest. The treasure chest is stored in the hallway. Benjamin exited the hallway. Elizabeth walked out of the hallway. Benjamin tiptoed into the office. Benjamin is annoyed by the turnip.\n\nQuestion: Where does Elizabeth think that Benjamin searches for the persimmon?\nAnswer:']
+    # batch = ['Elizabeth stepped into the hallway. Benjamin arrived at the hallway. The box has the persimmon. The box is positioned in the hallway. Elizabeth conveyed the persimmon to the treasure chest. The treasure chest is stored in the hallway. Benjamin exited the hallway. Elizabeth walked out of the hallway. Benjamin tiptoed into the office. Benjamin is annoyed by the turnip.\n\nQuestion: Where does Elizabeth think that Benjamin searches for the persimmon?\nAnswer:']
+    batch = ['Yesterday morning I texted Maya that the meeting was moved, and my dog Rumi heard the notification. Later, I realized Maya had noticed the change before I did, so we agreed to call the new coordinator.']
     use_tracings = [True]
 
     generated_thoughts = agent.batch_trace(batch, use_tracings)
@@ -72,9 +73,9 @@ if __name__ == "__main__":
     parser.add_argument('--existing-savepoint', default=None, help='path to existing savepoint')
     parser.add_argument('--reasoning-effort', type=str, help='Reasoning effort')
     args = parser.parse_args([
-                "--model", "monkey",
+                "--model", "gpt-4o-mini",
                 "--use-tracing",
-                "--tracing-model", "monkey",
+                "--tracing-model", "gpt-4o-mini",
                 "--print",
                 "--run-id", "tracer-first-run",
                 "--dataset", "tomi",

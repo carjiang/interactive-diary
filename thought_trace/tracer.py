@@ -65,7 +65,7 @@ class BaseTracer(ABC):
             str: The target agent.
         """
         question = extract_question(input_text)
-        target_identification_prompt = f"'{question}'\n\nMain question: Who is the subject of the above question? Whose perspective is this question primarily about? Provide the name of the individual, their title, or the group. If the subject of the question is not related to a person or a group, state 'none'.\nThe concise answer to the main question is (e.g, name):"
+        target_identification_prompt = f"'{question}'\n\nMain question: Who is the subject of the above question? Whose perspective is this question primarily about? Provide the name of the individual, their title, or the group. If the subject of the question is not related to a person or a group, state 'the user'.\nThe concise answer to the main question is (e.g, name):"
 
         if self.args.use_helper_llm:
             llm = load_model('gpt-4o', run_id=self.args.run_id)
