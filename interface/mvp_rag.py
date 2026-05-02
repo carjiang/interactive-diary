@@ -42,7 +42,7 @@ def rag_diary_response(
                 f"{_python_literal(container_checkpoint)}, "
                 f"{json.dumps(container_output)})"
             ),
-        ], check=True, stdout=subprocess.DEVNULL)
+        ], check=True)
 
         with open(output_path, "r") as f:
             response = f.read().strip()

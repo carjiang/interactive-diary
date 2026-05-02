@@ -59,7 +59,9 @@ def generate_rag_response(
     output_path: str,
 ) -> None:
     
-    trace_thought.main()
+    aggregation = trace_thought.main(raw_text)
+    print(aggregation)
+    response = "idk" + aggregation
     # client = OpenAI()
     # retriever = HypothesisRetriever(client=client)
     # timestamp = datetime.now(tz=timezone.utc)
@@ -81,9 +83,9 @@ def generate_rag_response(
 
     # retriever.add_entry(str(uuid.uuid4()), timestamp, raw_text, user_id)
 
-    # os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    # with open(output_path, "w") as f:
-    #     f.write(response)
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, "w") as f:
+        f.write(response)
 
 if __name__ == '__main__':
     trace_thought.main()
