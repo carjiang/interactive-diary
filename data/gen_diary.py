@@ -5,7 +5,7 @@ import re
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from extractor.schema import DiarySample
+from thought_trace.extractor.schema import DiarySample
 
 FILENAME = 'data/synth_diary.jsonl'
 ENTRIES = 100

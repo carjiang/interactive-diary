@@ -24,9 +24,9 @@ from transformers import BertTokenizerFast, get_linear_schedule_with_warmup
 from seqeval.metrics import classification_report, f1_score
 
 from data.schema_spec import load_dataset
-from extractor import get_device
-from extractor.model import BertCRFForNER, NERDataset, IGNORE_LABEL_ID
-from extractor.schema import ID_TO_LABEL, NERConfig, NERSample
+from thought_trace.extractor import get_device
+from thought_trace.extractor.model import BertCRFForNER, NERDataset, IGNORE_LABEL_ID
+from thought_trace.extractor.schema import ID_TO_LABEL, NERConfig, NERSample
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 logger = logging.getLogger(__name__)

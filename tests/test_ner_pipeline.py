@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from extractor.schema import (
+from thought_trace.extractor.schema import (
     BIO_LABELS,
     LABEL_TO_ID,
     ID_TO_LABEL,
@@ -20,7 +20,7 @@ from extractor.schema import (
     NERSample,
     TextSpan,
 )
-from extractor.inference import (
+from thought_trace.extractor.inference import (
     _collect_spans,
     _assemble_events,
     _fallback_single_event,

@@ -16,7 +16,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from extractor.schema import BIO_LABELS, DiarySample, NERSample
+from thought_trace.extractor.schema import BIO_LABELS, DiarySample, NERSample
 
 
 def validate_and_flatten(

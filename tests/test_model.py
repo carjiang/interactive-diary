@@ -12,15 +12,15 @@ import pytest
 
 from transformers import BertTokenizerFast
 
-from extractor.schema import (
+from thought_trace.extractor.schema import (
     BIO_LABELS,
     ID_TO_LABEL,
     LABEL_TO_ID,
     NERConfig,
     NERSample,
 )
-from extractor.model import BertCRFForNER, CRF, NERDataset, IGNORE_LABEL_ID
-from extractor.inference import _prepare_batch
+from thought_trace.extractor.model import BertCRFForNER, CRF, NERDataset, IGNORE_LABEL_ID
+from thought_trace.extractor.inference import _prepare_batch
 
 
 NUM_TAGS = len(BIO_LABELS)

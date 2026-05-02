@@ -16,7 +16,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from extractor.schema import DiarySample, NERSample
+from thought_trace.extractor.schema import DiarySample, NERSample
 
 logger = logging.getLogger(__name__)
 

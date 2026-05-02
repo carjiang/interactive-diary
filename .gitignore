@@ -48,3 +48,6 @@ data/train_*.jsonl
 
 # paper reference docs
 docs/
+
+# thought trace logs
+*.outputs

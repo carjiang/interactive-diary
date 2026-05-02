@@ -13,7 +13,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from extractor.inference import (
+from thought_trace.extractor.inference import (
     assign_temporal_order,
     extract_entry,
     extract_entries,
