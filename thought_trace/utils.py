@@ -7,7 +7,7 @@ from typing import List
 
 from nltk.stem import LancasterStemmer
 
-from agents.base import BaseAgent
+from thought_trace.agents.base import BaseAgent
 
 PROJECT_BASE = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_DIR = os.path.join(PROJECT_BASE, 'prompt_templates')

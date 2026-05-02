@@ -222,6 +222,21 @@ class AsyncConversationalGPTBaseAgent(ConversationalGPTBaseAgent, AsyncBaseAgent
             break
         responses = [self.postprocess_output(output) for output in outputs]
 
+        #### BATCHED TRANSCRIPT LOGGING 
+        for prompt, system_prompt, history, response in zip(
+            prompts,
+            system_prompts,
+            histories if histories is not None else [None] * len(prompts),
+            responses
+        ):
+            self.transcript.append({
+                "system_prompt": system_prompt,
+                "prompt": prompt,
+                "history": history,
+                "response": response
+            })
+        #### BATCHED TRANSCRIPT LOGGING END
+
         return responses
 
     def interact(self, prompt, temperature=0, max_tokens=1024, system_prompt=None, history=None):
@@ -231,6 +246,7 @@ class AsyncConversationalGPTBaseAgent(ConversationalGPTBaseAgent, AsyncBaseAgent
         ## TRANSCRIPT LOGGING
         self.transcript.append({
                 "system_prompt": system_prompt,
+                "prompt": prompt,
                 "history": history,
                 "response": outputs[0]
             })
