@@ -29,6 +29,7 @@ build/
 .eggs/
 *.plan.md
 
+*checkpoint/
 checkpoints/
 *.pt
 *.bin
