@@ -59,17 +59,28 @@ def generate_rag_response(
     output_path: str,
 ) -> None:
     
-    # aggregation = trace_thought.main(raw_text)
-    # print(aggregation)
-    # response = "idk" + aggregation
+    aggregation = trace_thought.main(raw_text)
+    print(aggregation)
+    response = "idk" + aggregation
 
     # ====== BEGIN RAG STUFF ======
     client = OpenAI()
     retriever = HypothesisRetriever(client=client)
     timestamp = datetime.now(tz=timezone.utc)
 
-    retrieved = retriever.retrieve_similar(raw_text, user_id=user_id, top_k=top_k)
-    print(retrieved)
+    # TODO: USE THE RETRIEVED THERAPIST RESPONSES.
+    # retrieved is a LIST contianing <top_k> DICTIONARIES in decreasing order of similarity.
+    # each DICTIONARY is formatted as follows:
+    # {
+    #   'raw_text': a str of what the patient said to the therapist
+    #   'response': a list of strs containing possible responses (guaranteed at least 1 i hope)
+    #   'similarity_score' a float with the similarity value. i think its in [0, 1]?
+    # } 
+    retrieved = retriever.retrieve_similar(raw_text, user_id='therapist', top_k=top_k)
+    response = response + retrieved[0]['response'][0]
+    print(response)
+    
+    # print(retrieved)
     # augmented_prompt = build_augmented_prompt(raw_text, retrieved)
 
     # extractor = _load_extractor(checkpoint)
@@ -84,12 +95,12 @@ def generate_rag_response(
     #     ],
     # ).choices[0].message.content.strip()
 
-    retriever.add_entry(str(uuid.uuid4()), timestamp, raw_text, user_id)
+    # retriever.add_entry(str(uuid.uuid4()), timestamp, raw_text, user_id)
     # ====== END RAG STUFF ======
 
-    # os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    # with open(output_path, "w") as f:
-    #     f.write(response)
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, "w") as f:
+        f.write(response)
 
 if __name__ == '__main__':
     trace_thought.main()

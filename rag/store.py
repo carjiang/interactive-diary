@@ -12,6 +12,7 @@ def append_record(
     timestamp: datetime,
     raw_text: str,
     user_id: str,
+    response = None
 ) -> None:
     record = {
         "entry_id": entry_id,
@@ -19,6 +20,8 @@ def append_record(
         "raw_text": raw_text,
         "user_id": user_id,
     }
+    if response:
+        record['response'] = response
     with open(STORE_PATH, "a") as f:
         f.write(json.dumps(record) + "\n")
 

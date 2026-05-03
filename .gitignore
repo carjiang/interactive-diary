@@ -17,8 +17,8 @@ temp*
 */temp*
 */tmp*
 tmp*
-*.faiss
-*diary_store.jsonl
+# *.faiss
+# *diary_store.jsonl
 *transcript_convo.json
 
 # NER pipeline

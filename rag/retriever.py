@@ -61,13 +61,16 @@ class HypothesisRetriever:
         timestamp: datetime,
         raw_text: str,
         user_id: str,
+        response = None
     ) -> None:
 
-        append_record(entry_id, timestamp, raw_text, user_id)
+        append_record(entry_id, timestamp, raw_text, user_id, response)
         vector = embed_text(raw_text, self.client)
         index = _load_index(user_id)
         index.add(vector.reshape(1, -1))
         _save_index(index, user_id)
+
+
 
     def retrieve_similar(
         self,
