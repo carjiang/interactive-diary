@@ -4,7 +4,7 @@ import json
 import os
 from datetime import datetime
 
-STORE_PATH = os.path.join(os.path.dirname(__file__), "counselors_dataset_store.jsonl")
+STORE_PATH = os.path.join(os.path.dirname(__file__), "counselors_store.jsonl")
 
 
 def append_record(

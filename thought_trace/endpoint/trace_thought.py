@@ -79,10 +79,10 @@ def main(text):
     # if MODEL == "gpt-4o-mini":
     #     agent.tracer_model.save_transcript_json()
 
-    print("AGGREGATED", aggregate)
-    print("FINISHED AGGREGATED")
+    # print("AGGREGATED", aggregate)
+    # print("FINISHED AGGREGATED")
     hypotheses_dicts = [h.dump() for h in hypotheses_list]
-    print(hypotheses_dicts)
+    # print(hypotheses_dicts)
     return aggregate
 
 if __name__ == '__main__':

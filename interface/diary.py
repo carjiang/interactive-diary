@@ -1,19 +1,21 @@
+from rich.panel import Panel
+from rich import print
+import io
+import queue
+from gtts import gTTS
+import sounddevice as sd
+import numpy as np
+import json
+import tempfile
+import time
+import subprocess
 import argparse
 import os
-import subprocess
-import time
-import tempfile
-import json
-import numpy as np
-import sounddevice as sd
-from gtts import gTTS
-import queue
-import io
-from rich import print
-from rich.panel import Panel
 
-
-import pygame
+# isort: off
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
+import pygame # keep this after os.environ.
+# isort: on
 
 DURATION = 60 * 10  # max recording duration of 10 minutes
 SAMPLERATE = 16000
@@ -36,8 +38,13 @@ def play_audio(path):
 
 
 # pretty print new section
-def print_section(text):
-    print(Panel(text, title="Dory, the Interactive Diary", style="bold magenta"))
+def print_assistant(text):
+    print()
+    print(Panel(f"{text}", title="Interactive Diary", style="bold green"))
+    
+def print_diary(text):
+    print()
+    print(Panel(f"{text}", style="bold blue"))
 
 
 def speak(text):
@@ -57,24 +64,45 @@ def speak(text):
 def record_and_save(output_path):
     q = queue.Queue()
     recording = []
+    start_time = time.time()
 
     def callback(indata, frames, time_info, status):
         if status:
             print(status)
-        q.put(indata.copy())
+        try:
+            q.put_nowait(indata.copy())
+        except queue.Full:
+            # If the main loop is busy, drop this chunk instead of blocking
+            # the audio callback thread.
+            pass
 
     print("Recording... Press Ctrl+C to stop.")
+    stream = None
     try:
-        with sd.InputStream(
+        stream = sd.InputStream(
             samplerate=SAMPLERATE,
             channels=CHANNELS,
             callback=callback
-        ):
-            while True:
-                data = q.get()
+        )
+        stream.start()
+        while True:
+            if time.time() - start_time >= DURATION:
+                print(f"\nReached max recording duration ({DURATION} seconds).")
+                break
+            try:
+                # Use a timeout so Python can process Ctrl+C promptly.
+                data = q.get(timeout=0.1)
                 recording.append(data)
+            except queue.Empty:
+                pass
     except KeyboardInterrupt:
         print("\nStopped recording.")
+    finally:
+        if stream is not None:
+            try:
+                stream.stop()
+            finally:
+                stream.close()
 
     # Keep any final chunks that were queued right before Ctrl+C.
     while not q.empty():
@@ -147,21 +175,39 @@ def gpt_diary_response(text):
 
 def start_diary(speech_enabled=True):
     SPEECH_ENABLED = speech_enabled
-    print_section(
-        "Welcome to your Interactive Diary! You can speak or type your diary entries, and I'll respond with empathy and understanding.")
+    print_assistant(
+        "Welcome to Interactive Diary!")
     if speech_enabled:
-        speak("Welcome to your Interactive Diary!")
+        speak("Welcome to Interactive Diary!")
+        
+    print_assistant(
+        "Would you like me to coach, or just be listening?"
+    )
+    if speech_enabled:
+        speak("Would you like me to coach, or just be listening?")
+    
+    diary_style = input(
+        "[COACH/listen]: ").strip().lower()
+    listen = (diary_style in ("listen", "just listen", "listening", "just listening", "just be listening") ) or (diary_style[0] == "l")
+    diary_style = "listen" if listen else "COACH"
+    print_diary(f"You chose: {diary_style} mode.")
+    
+    return listen
+    
+    
+    
+    
 
 
-def get_entry(speech_enabled=True):
+def get_entry(speech_enabled=True, first_entry=False):
     SPEECH_ENABLED = speech_enabled
     log_text = f"Hey, what's up? Feel free to {'speak' if SPEECH_ENABLED else 'type'} your diary entry."
-    print_section(log_text)
+    print_assistant(log_text)
     if SPEECH_ENABLED:
         speak(log_text)
         print("Listening for your diary entry... Stop recording with Ctrl+C when done.")
         text = stt()
-        print("Your diary entry: " + text)
+        print_diary(f"Your diary entry: {text}")
     else:
         text = input("Your diary entry: ")
 
@@ -171,21 +217,18 @@ def get_entry(speech_enabled=True):
 
 def put_reply(text, speech_enabled=True):
     SPEECH_ENABLED = speech_enabled
-    print_section("Thanks for sharing! Here's my response:\n")
+    print_assistant(f"Thanks for sharing!\n\n{text}")
     if SPEECH_ENABLED:
-        speak("Thanks for sharing! Here's my response:")
-    print(text)
-    if SPEECH_ENABLED:
-        speak(text)
+        speak("Thanks for sharing! " + text)
 
-
-def should_continue_diary():
+def should_continue_diary(speech_enabled=True):
     keep_going = input(
         "\nWould you like to write another entry? [Y/n]: ").strip().lower()
     y = keep_going not in ("n", "no", "stop", "quit", "exit", "q")
     if not y:
-        print_section("\nAu revoir! Your entries have been saved.\n")
-        speak("Au revoir! Your entries have been saved.")
+        print_assistant("Bye-bye! Please fill out the survey. :)")
+        if speech_enabled:
+            speak("Bye-bye! Please fill out the survey!")
     return y
 
 

@@ -65,6 +65,7 @@ class HypothesisRetriever:
         index = _load_index(user_id)
 
         if not records or index.ntotal == 0:
+            print("No records found for user_id:", user_id, index.ntotal, records)
             return []
 
         if len(records) != index.ntotal:
