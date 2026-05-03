@@ -35,8 +35,7 @@ Hi welcome to Interactive Diary!
 ### Prompt Guidelines:
 - Use first-person
 - Once entries are recorded, they can be edited
-- Describe your day, how your feeling, or trials and tribulations.
-- Do not mention things are that personal or private information: the model automatically stores all logs...
+- Feel free to use our program to journal or diary about anything. We do NOT store or have access to any logs.
 - If you cannot get audio to work, apply a text tag `python interface/mvp.py --text`
 
 
