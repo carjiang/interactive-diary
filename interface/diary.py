@@ -9,6 +9,8 @@ import sounddevice as sd
 from gtts import gTTS
 import queue
 import io
+from rich import print
+from rich.panel import Panel
 
 
 import pygame
@@ -35,10 +37,7 @@ def play_audio(path):
 
 # pretty print new section
 def print_section(text):
-    print("\n|"+("-"*min(150, len(text)-2))+"|")
-    print(text)
-
-# speaks to user
+    print(Panel(text, title="Interactive Diary", style="bold magenta"))
 
 
 def speak(text):

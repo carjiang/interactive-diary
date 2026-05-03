@@ -76,8 +76,8 @@ def main(text):
     # text = 'I didn\'t expect today to turn into such a mess. It started in history class when Jake interrupted me during my presentation—again. I tried to ignore it at first, but when he laughed and made that comment about me “trying too hard,” something just snapped. I fired back, louder than I meant to, and suddenly the whole class went quiet. The teacher stepped in before it got worse, but the damage was already done. Now I keep replaying it in my head—his smirk, my voice shaking, everyone staring. Part of me is still angry, but another part feels embarrassed for losing control. I don\'t know if I should apologize tomorrow or just avoid him. I wish things could go back to normal, but I have a feeling they won\'t be that simple.'
 
     aggregate, hypotheses_list = agent.trace(text)
-    if MODEL == "gpt-4o-mini":
-        agent.tracer_model.save_transcript_json()
+    # if MODEL == "gpt-4o-mini":
+    #     agent.tracer_model.save_transcript_json()
 
     print("AGGREGATED", aggregate)
     print("FINISHED AGGREGATED")

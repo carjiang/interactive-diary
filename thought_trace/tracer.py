@@ -1,3 +1,17 @@
+from pathlib import Path
+from datetime import datetime, timezone
+from thought_trace.extractor import inference as eext
+from thought_trace.hypothesis import compute_ess, extract_question, resample_hypotheses_with_other_info, HypothesesSetV3
+from thought_trace.utils import (
+    load_prompt,
+    softmax,
+    prompting_for_ordered_list,
+    overall_jaccard_similarity,
+    list_to_unordered_list_string,
+    capture_and_parse_ordered_list,
+    NpEncoder
+)
+from thought_trace.agents.load_model import load_model
 from copy import deepcopy
 import re
 import os
@@ -13,35 +27,29 @@ import colorful as cf
 cf.use_true_colors()
 cf.use_style('monokai')
 
-from thought_trace.agents.load_model import load_model
-from thought_trace.utils import (
-    load_prompt,
-    softmax,
-    prompting_for_ordered_list,
-    overall_jaccard_similarity,
-    list_to_unordered_list_string,
-    capture_and_parse_ordered_list,
-    NpEncoder
-)
-from thought_trace.hypothesis import compute_ess, extract_question, resample_hypotheses_with_other_info, HypothesesSetV3
-from thought_trace.extractor import inference as eext
-from datetime import datetime, timezone
-
-from pathlib import Path
 
 def get_tracer_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--use-tracing', action='store_true', help='whether to run the model with thought tracing')
-    parser.add_argument('--tracing-model', type=str, help='Model to use to answer final question.')
-    parser.add_argument('--n-hypotheses', type=int, default=4, help='number of hypotheses to generate for each input', )
-    parser.add_argument('--target-perceptions', type=str, default='sight',help='target perceptions to test')  #'sight,hearing,overall', 
-    parser.add_argument('--use-helper-llm', action='store_true', help='whether to use user helper llm for identifying target agent and labeling actions',)
-    parser.add_argument('--existing-traces', default=None, help='path to existing traces')
-    parser.add_argument('--input-is-chat', action='store_true', help="whether the input is a chat or not")
+    parser.add_argument('--use-tracing', action='store_true',
+                        help='whether to run the model with thought tracing')
+    parser.add_argument('--tracing-model', type=str,
+                        help='Model to use to answer final question.')
+    parser.add_argument('--n-hypotheses', type=int, default=4,
+                        help='number of hypotheses to generate for each input', )
+    parser.add_argument('--target-perceptions', type=str, default='sight',
+                        help='target perceptions to test')  # 'sight,hearing,overall',
+    parser.add_argument('--use-helper-llm', action='store_true',
+                        help='whether to use user helper llm for identifying target agent and labeling actions',)
+    parser.add_argument('--existing-traces', default=None,
+                        help='path to existing traces')
+    parser.add_argument('--input-is-chat', action='store_true',
+                        help="whether the input is a chat or not")
     parser.add_argument('--dataset', type=str, required=True, help='dataset')
-    parser.add_argument('--likelihood-estimate', default="prompting", type=str, choices=['rollout', 'prompting'], help='likelihood estimation method')
+    parser.add_argument('--likelihood-estimate', default="prompting", type=str,
+                        choices=['rollout', 'prompting'], help='likelihood estimation method')
     parser.add_argument('--tracer-type', type=str, help='tracer type')
     return parser
+
 
 class BaseTracer(ABC):
     def __init__(self, args):
@@ -53,7 +61,8 @@ class BaseTracer(ABC):
             self.base_model = load_model(args.model, **args.__dict__)
         tracer_name = args.tracing_model.replace("/", "-")
         base_name = args.model.replace("/", "-")
-        self.output_file = os.path.join(args.output_dir, f"tracer-{tracer_name}_model-{base_name}_runid-{args.run_id}_nhypotheses-{args.n_hypotheses}.jsonl")
+        self.output_file = os.path.join(
+            args.output_dir, f"tracer-{tracer_name}_model-{base_name}_runid-{args.run_id}_nhypotheses-{args.n_hypotheses}.jsonl")
         self.trace_header = "Let's trace [target agent]'s thoughts step by step through the context.\n"
         self.args = args
         os.makedirs(args.output_dir, exist_ok=True)
@@ -73,10 +82,13 @@ class BaseTracer(ABC):
 
         if self.args.use_helper_llm:
             llm = load_model('gpt-4o', run_id=self.args.run_id)
-            output = llm.interact(target_identification_prompt, temperature=0, max_tokens=16)
+            output = llm.interact(
+                target_identification_prompt, temperature=0, max_tokens=16)
         else:
-            output = self.tracer_model.interact(target_identification_prompt, temperature=0, max_tokens=16)
-        target_agent = output.split("\n")[0].split(":")[-1].strip().strip(".").replace("*", "")
+            output = self.tracer_model.interact(
+                target_identification_prompt, temperature=0, max_tokens=16)
+        target_agent = output.split("\n")[0].split(
+            ":")[-1].strip().strip(".").replace("*", "")
 
         return target_agent
 
@@ -91,20 +103,25 @@ class BaseTracer(ABC):
         Returns:
             List[dict]: A list of dictionaries containing the action label and the text.
         """
-        action_labeling_prompt = load_prompt(f'label_actions_{self.args.dataset}.txt')
+        action_labeling_prompt = load_prompt(
+            f'label_actions_{self.args.dataset}.txt')
         text = input_text.strip().removesuffix("Answer:").strip()
-        match = re.search(r'(.+?)(Output:|Choose one of the following:)', text, re.DOTALL)
+        match = re.search(
+            r'(.+?)(Output:|Choose one of the following:)', text, re.DOTALL)
         if match:
             text = match.group(1).strip()
 
-        action_labeling_prompt = action_labeling_prompt.replace('<<context>>', text)
-        action_labeling_prompt = action_labeling_prompt.replace('<<target_character>>', agent)
+        action_labeling_prompt = action_labeling_prompt.replace(
+            '<<context>>', text)
+        action_labeling_prompt = action_labeling_prompt.replace(
+            '<<target_character>>', agent)
 
         if self.args.use_helper_llm:
             llm = load_model('gpt-4o', run_id=self.args.run_id)
             labeled_text = llm.interact(action_labeling_prompt, temperature=0)
         else:
-            labeled_text = self.tracer_model.interact(action_labeling_prompt, temperature=0)
+            labeled_text = self.tracer_model.interact(
+                action_labeling_prompt, temperature=0)
 
         return labeled_text
 
@@ -115,7 +132,8 @@ class BaseTracer(ABC):
             separator = "\nTarget: "
         else:
             separator = "\nQuestion: "
-        convo = text.split(separator)[0].split("Meeting:")[-1].strip().split("\n")
+        convo = text.split(separator)[0].split(
+            "Meeting:")[-1].strip().split("\n")
         labeled_convo = []
         for line in convo:
             line = line.strip()
@@ -135,7 +153,8 @@ class BaseTracer(ABC):
         for idx, line in enumerate(labeled_convo):
             if line.endswith("<action>"):
                 if idx + 1 < len(labeled_convo) and labeled_convo[idx + 1].endswith("<action>"):
-                    labeled_convo[idx] = labeled_convo[idx].removesuffix("<action>") + "\n" + labeled_convo[idx + 1].removesuffix("<action>") + "<action>"
+                    labeled_convo[idx] = labeled_convo[idx].removesuffix(
+                        "<action>") + "\n" + labeled_convo[idx + 1].removesuffix("<action>") + "<action>"
                     labeled_convo.pop(idx + 1)
 
         return "\n".join(labeled_convo)
@@ -148,7 +167,8 @@ class BaseTracer(ABC):
         actions = []
         for idx, a in enumerate(_actions):
             if idx == 0:
-                a = a.strip(".") + ".<no action>" # the first action is not an action -- e.g., David is situated in the kitchen.
+                # the first action is not an action -- e.g., David is situated in the kitchen.
+                a = a.strip(".") + ".<no action>"
                 actions.append(a)
             else:
                 if a != "":
@@ -166,7 +186,8 @@ class BaseTracer(ABC):
         """
 
         sentences = labeled_text.split(">")
-        sentences = [sentence.strip() for sentence in sentences if sentence.strip() != ""]
+        sentences = [sentence.strip()
+                     for sentence in sentences if sentence.strip() != ""]
 
         # Group parts with no actions, so that the text is segmented into interleaved chunks of actions and states
         segmented_text = []
@@ -178,7 +199,8 @@ class BaseTracer(ABC):
         actions = ""
         for sentence in sentences:
             if sentence.endswith("<no action"):
-                no_action_sentence = sentence.removesuffix("<no action").strip()
+                no_action_sentence = sentence.removesuffix(
+                    "<no action").strip()
                 if actions != "":
                     segmented_text.append({'action': True, 'text': actions})
                     actions = ""
@@ -234,11 +256,14 @@ class BaseTracer(ABC):
                 if idx - 1 >= 0:
                     previous = state_action_segments[idx - 1]
                     if previous['action']:
-                        trajectory.append({'state': None, 'action': segment['text']})
+                        trajectory.append(
+                            {'state': None, 'action': segment['text']})
                     else:
-                        trajectory.append({'state': previous['text'], 'action': segment['text']})
+                        trajectory.append(
+                            {'state': previous['text'], 'action': segment['text']})
                 else:
-                    trajectory.append({'state': None, 'action': segment['text']})
+                    trajectory.append(
+                        {'state': None, 'action': segment['text']})
         if segment['action'] is False:
             trajectory.append({'state': segment['text'], 'action': None})
 
@@ -267,7 +292,8 @@ class BaseTracer(ABC):
         #     return None
 
         if self.args.print:
-            print(Panel(text, title="Input Text", style="blue", expand=False, box=box.SIMPLE_HEAD))
+            print(Panel(text, title="Input Text", style="blue",
+                  expand=False, box=box.SIMPLE_HEAD))
         # context = text.split("\nQuestion:")[0]
 
         # THIS STUFF IS THE ORIGINAL THOUGHT TRACING CODE FOR EXTRACTING TRAJECTORY
@@ -292,30 +318,20 @@ class BaseTracer(ABC):
         # determine checkpoint path -------
         HERE = Path(__file__).resolve()
         PROJECT_ROOT = HERE.parents[1]
-        model_checkpoint = HERE.parents[0] / 'extractor' / 'checkpoints' / 'best_v3'
+        model_checkpoint = HERE.parents[0] / \
+            'extractor' / 'checkpoints' / 'best_v3'
         # ---------------------------------
 
         model, tokenizer, config = eext.load_model(model_checkpoint)
         diary_entry = text
-        events = eext.extract_events(diary_entry, model, tokenizer, config)
-
-        trajectory = []
-        prev_end = 0
-        for e in events:
-            pair = {'state': None,
-                    'action': None}
-            if e.actor == "ME":
-                state = text[prev_end:e.text_span.start]
-                if state.strip() != '':
-                    pair['state'] = state
-                pair['action'] = text[e.text_span.start:e.text_span.end]
-                prev_end = e.text_span.end
-                trajectory.append(pair)
-        if prev_end != len(text):
-            trajectory.append(
-                {'state': text[prev_end:],
-                'action': None}
-            )
+        trajectory = eext.extract_entries(
+            texts=[diary_entry],
+            model=model,
+            tokenizer=tokenizer,
+            config=config,
+            output_format="trajectory",
+            target_agent="ME",
+        )[0]
 
         # ======================================================
 
@@ -373,14 +389,15 @@ class BaseTracer(ABC):
         with open(self.output_file, 'a') as f:
             f.write(json.dumps(traced_thought, cls=NpEncoder) + '\n')
 
-    def interact(self, text: str, temperature=0, max_tokens: int=256):
+    def interact(self, text: str, temperature=0, max_tokens: int = 256):
         return self.base_model.interact(text, temperature=temperature)
 
-    def batch_interact(self, texts: list, temperature: float=0, max_tokens: int=256):
+    def batch_interact(self, texts: list, temperature: float = 0, max_tokens: int = 256):
         return self.base_model.batch_interact(texts, temperature=temperature, max_tokens=max_tokens)
 
-    def batch_cot(self, texts: list, temperature: float=0, max_tokens: int=256):
+    def batch_cot(self, texts: list, temperature: float = 0, max_tokens: int = 256):
         return self.base_model.batch_cot(texts, temperature=temperature, max_tokens=max_tokens)
+
 
 class Tracer(BaseTracer):
     def __init__(self, args):
@@ -392,13 +409,16 @@ class Tracer(BaseTracer):
         # self.question = preprocessed_text['question']
         self.input_context = preprocessed_text['context']
         self.target_agent = preprocessed_text['target_agent']
-        self.trace_header = self.trace_base_header.replace("[target agent]", self.target_agent)
+        self.trace_header = self.trace_base_header.replace(
+            "[target agent]", self.target_agent)
 
     def get_perception_tracking_prompts(self, state_action: dict, context_history: List[dict] = None, target_agent: str = None) -> List[str]:
-        target_agent = self.target_agent if target_agent is None else target_agent  # ok why not again
+        # ok why not again
+        target_agent = self.target_agent if target_agent is None else target_agent
         state = state_action['state']
         action = state_action['action']
-        context_history_list = [c['text'] for c in context_history] if context_history is not None else []
+        context_history_list = [
+            c['text'] for c in context_history] if context_history is not None else []
         prompts = []
         sysprompts = []
 
@@ -406,11 +426,12 @@ class Tracer(BaseTracer):
             sysprompt_for_state = f"You are an expert perception tracker tasked with determining whether {target_agent} perceived the target context. Briefly describe what {target_agent} saw or why {target_agent} could not see the target context. Make your response concise."
             if len(context_history) > 0:
                 context_input_for_state = ""
-                context_input_for_state += list_to_unordered_list_string(context_history_list, list_bullet="")
+                context_input_for_state += list_to_unordered_list_string(
+                    context_history_list, list_bullet="")
                 context_input_for_state += f"\n<target context>\n{state}\n</target context>"
             else:
                 context_input_for_state = f"<context>\n{state}\n</context>"
-            query_for_state = f"{context_input_for_state}" 
+            query_for_state = f"{context_input_for_state}"
             prompts.append(query_for_state)
             sysprompts.append(sysprompt_for_state)
 
@@ -419,7 +440,8 @@ class Tracer(BaseTracer):
             context_input_for_action = "<context>\n"
             if state:
                 context_history_list.append(state)
-            context_input_for_action += list_to_unordered_list_string(context_history_list, list_bullet="")
+            context_input_for_action += list_to_unordered_list_string(
+                context_history_list, list_bullet="")
             context_input_for_action += f"\n</context>"
             context_input_for_action += f"\n\n<action>{action}</action>"
             query_for_action = f"{context_input_for_action}"
@@ -431,7 +453,8 @@ class Tracer(BaseTracer):
         target_agent = self.target_agent if target_agent is None else target_agent
         state = state_action['state']
         action = state_action['action']
-        context_history_list = [c['text'] for c in context_history] if context_history is not None else []
+        context_history_list = [
+            c['text'] for c in context_history] if context_history is not None else []
         prompts = []
         sysprompts = []
 
@@ -439,13 +462,14 @@ class Tracer(BaseTracer):
             sysprompt_for_state = f"You are an expert perception tracker tasked with determining whether {target_agent} was involved in the conversation or was not. If the {target_agent} was in the scene, they must have perceived the context. If they were away, they did not perceive the context."
             if len(context_history) > 0:
                 context_input_for_state = ""
-                context_input_for_state += list_to_unordered_list_string(context_history_list, list_bullet="")
+                context_input_for_state += list_to_unordered_list_string(
+                    context_history_list, list_bullet="")
                 context_input_for_state += f"\n<target context>\n{state}\n</target context>"
             else:
                 context_input_for_state = f"<context>\n{state}\n</context>"
             if action:
                 context_input_for_state += f"\n<response>\n{action}\n</response>"
-            query_for_state = f"{context_input_for_state}" 
+            query_for_state = f"{context_input_for_state}"
             prompts.append(query_for_state)
             sysprompts.append(sysprompt_for_state)
 
@@ -459,10 +483,12 @@ class Tracer(BaseTracer):
             target_agent = self.target_agent
 
         for idx, t in enumerate(trajectory):
-            if self.args.input_is_chat: # when is this even set to true? answer: it is used in FANTOM dataset
-                perception_prompts = self.get_perception_tracking_prompts_for_chat(t, context_history, target_agent)
+            if self.args.input_is_chat:  # when is this even set to true? answer: it is used in FANTOM dataset
+                perception_prompts = self.get_perception_tracking_prompts_for_chat(
+                    t, context_history, target_agent)
             else:   # so assume unless i have made an explicit change that we're using this branch
-                perception_prompts = self.get_perception_tracking_prompts(t, context_history, target_agent)
+                perception_prompts = self.get_perception_tracking_prompts(
+                    t, context_history, target_agent)
             prompts.extend(perception_prompts['prompts'])
             sysprompts.extend(perception_prompts['sysprompts'])
             if t['state']:
@@ -470,13 +496,17 @@ class Tracer(BaseTracer):
             if t['action']:
                 context_history.append({'text': t['action'], 'action': True})
 
-        perception_inferences = self.tracer_model.batch_interact(prompts, temperature=0, system_prompts=sysprompts)
-        perception_trajectory = [{'state': None, 'action': None} for _ in range(len(trajectory))]
+        perception_inferences = self.tracer_model.batch_interact(
+            prompts, temperature=0, system_prompts=sysprompts)
+        perception_trajectory = [{'state': None, 'action': None}
+                                 for _ in range(len(trajectory))]
         for idx, c in enumerate(trajectory):
             if c['state']:
-                perception_trajectory[idx]['state'] = perception_inferences.pop(0)
+                perception_trajectory[idx]['state'] = perception_inferences.pop(
+                    0)
             if c['action'] and not self.args.input_is_chat:
-                perception_trajectory[idx]['action'] = perception_inferences.pop(0)
+                perception_trajectory[idx]['action'] = perception_inferences.pop(
+                    0)
 
         return perception_trajectory
 
@@ -489,10 +519,12 @@ class Tracer(BaseTracer):
         """
         Preprocess the input_text before passing it to the tracer model. Identify the target agent (i.e., character) and label the actions.
         """
-        preprocessed_text = BaseTracer.preprocess_input(self, text, target_agent)
+        preprocessed_text = BaseTracer.preprocess_input(
+            self, text, target_agent)
         # if preprocessed_text is None:
         #     return None
-        preprocessed_text['perceptions'] = self.track_perception(preprocessed_text['trajectory'], preprocessed_text['target_agent'])
+        preprocessed_text['perceptions'] = self.track_perception(
+            preprocessed_text['trajectory'], preprocessed_text['target_agent'])
         # preprocessed_text['assumption'] = self.get_assumption(preprocessed_text['question'])
         # self.assumption = f"\n{preprocessed_text['assumption']}"
 
@@ -510,7 +542,7 @@ class Tracer(BaseTracer):
             context_input += f"<state>\n{agent_state.strip()}\n</state>\n"
 
             context_input += f"<note>{perceptions['state']}</note>\n\n"
-        
+
         if action:
             if self.args.input_is_chat:
                 context_input += f"<response>\n{action}\n</response>\n"
@@ -531,16 +563,20 @@ class Tracer(BaseTracer):
                 belief_query = f"{context_input.strip()}\n\nGenerate a numbered list of {n_hypotheses_str} hypotheses on what were {self.target_agent}'s thoughts (e.g., beliefs, intent) that led to the action above. Do not add any additional comments."
             else:
                 belief_query = f"{context_input.strip()}\n\nGenerate a numbered list of {n_hypotheses_str} hypotheses on what {self.target_agent} will be thinking (e.g., beliefs). Do not add any additional comments."
-           
-            _hypotheses_list = prompting_for_ordered_list(self.tracer_model, prompt=belief_query, n=self.args.n_hypotheses)
-            hypotheses_list = [hypothesis.strip() for hypothesis in _hypotheses_list]
+
+            _hypotheses_list = prompting_for_ordered_list(
+                self.tracer_model, prompt=belief_query, n=self.args.n_hypotheses)
+            hypotheses_list = [hypothesis.strip()
+                               for hypothesis in _hypotheses_list]
         else:
             belief_query = f"{context_input}\n\nQuestion: What will {self.target_agent} be thinking now?"
-            hypothesis = self.tracer_model.interact(belief_query, temperature=0, max_tokens=1024)
+            hypothesis = self.tracer_model.interact(
+                belief_query, temperature=0, max_tokens=1024)
             hypotheses_list = [hypothesis]
 
         weights = np.ones(len(hypotheses_list)) / len(hypotheses_list)
-        initial_hypotheses = HypothesesSetV3(target_agent=self.target_agent, contexts=[state_action], perceptions=[perceptions], texts=hypotheses_list, weights=weights)
+        initial_hypotheses = HypothesesSetV3(target_agent=self.target_agent, contexts=[
+                                             state_action], perceptions=[perceptions], texts=hypotheses_list, weights=weights)
 
         return initial_hypotheses
 
@@ -553,12 +589,13 @@ class Tracer(BaseTracer):
         else:
             return ""
         prompt = f"{assumption_substring}\n\nTask: Convert the above into a sentence in present tense. Do not add any additional comments."
-        model = load_model("gpt-4o-2024-08-06", run_id=self.args.run_id) if self.args.use_helper_llm else self.tracer_model
+        model = load_model(
+            "gpt-4o-2024-08-06", run_id=self.args.run_id) if self.args.use_helper_llm else self.tracer_model
         assumption = model.interact(prompt, temperature=0, max_tokens=128)
         if self.args.print:
             print(Panel(assumption, title="Assumption", style="green"))
 
-        return assumption 
+        return assumption
 
     def interleave_context_and_perception(self, context_history: List[dict], perception_history: List[dict], target_agent: str = None, chat: bool = False) -> str:
         if target_agent is None:
@@ -568,7 +605,8 @@ class Tracer(BaseTracer):
             if c['state'] or c['action']:
                 context_and_perception += f"<context {idx + 1}>\n"
                 if c['state']:
-                    context_and_perception += f"<state>{p['state']}</state>\n\n" # only include the perception for inhibitory control
+                    # only include the perception for inhibitory control
+                    context_and_perception += f"<state>{p['state']}</state>\n\n"
                 if c['action']:
                     if self.args.input_is_chat:
                         context_and_perception += f"<response>\n{c['action']}\n</response>\n"
@@ -577,14 +615,16 @@ class Tracer(BaseTracer):
 
                     if p['action']:
                         context_and_perception += f"<note>{p['action']}</note>\n"
-            context_and_perception = context_and_perception.strip() + f"\n</context {idx + 1}>\n\n"
+            context_and_perception = context_and_perception.strip() + \
+                f"\n</context {idx + 1}>\n\n"
         return context_and_perception.strip()
 
-    def setup_propagation(self, existing_hypotheses: HypothesesSetV3, state_action: dict, perceptions:dict) -> HypothesesSetV3:
+    def setup_propagation(self, existing_hypotheses: HypothesesSetV3, state_action: dict, perceptions: dict) -> HypothesesSetV3:
         target_agent = existing_hypotheses.target_agent
         context_history = deepcopy(existing_hypotheses.contexts)
         perception_history = deepcopy(existing_hypotheses.perceptions)
-        context_and_perception_str = self.interleave_context_and_perception(context_history, perception_history, target_agent)
+        context_and_perception_str = self.interleave_context_and_perception(
+            context_history, perception_history, target_agent)
         context_history.append(state_action)
         perception_history.append(perceptions)
 
@@ -614,7 +654,8 @@ class Tracer(BaseTracer):
         perception_history = hypotheses.perceptions
 
         if mode == "prompting":
-            results = self.prompt_likelihood(hypotheses_texts, context_history, perception_history, action)
+            results = self.prompt_likelihood(
+                hypotheses_texts, context_history, perception_history, action)
         else:
             raise NotImplementedError
 
@@ -634,9 +675,10 @@ class Tracer(BaseTracer):
         pruned_perception_history = deepcopy(perception_history)
         # to remove the last action and its perception, because we will be evaluating the thought before the action
         pruned_context_history[-1]['action'] = None
-        pruned_perception_history[-1]['action'] = None 
+        pruned_perception_history[-1]['action'] = None
         if len(pruned_context_history) > 1:
-            context_and_perception_str = self.interleave_context_and_perception(pruned_context_history, pruned_perception_history)
+            context_and_perception_str = self.interleave_context_and_perception(
+                pruned_context_history, pruned_perception_history)
         else:
             if pruned_context_history[-1]['state']:
                 context_and_perception_str = f"{pruned_context_history[-1]['state']}"
@@ -645,23 +687,30 @@ class Tracer(BaseTracer):
 
         system_prompt = f"Your job is to evaluate the probability of actions/utterance under a given fact. Use common sense: for instance, if someone is searching for an item, they are likely to take it once they find it rather than merely observing it. If they don't take it and just sees it, it indicates a lack of interest and that was not what they were looking for. Briefly explain the probability of the action/utterance under the given fact first and then give the answer option with prefix 'Answer:'"
         question = f"Question: Based on the context and {target_agent}'s thoughts provided, would {target_agent} do the next actions or say the next utterances described above? Let's think step by step and give the final answer."
-        word_mapping = {'a': "Very Likely (Around 90%)", 'b': "Likely (Around 70%)", 'c': "Somewhat Likely (Around 60%)", 'd': "Somewhat Unlikely (Around 25%)", 'e': "Unlikely (Around 20%)", 'f': "Very Unlikely (Below 10%)"}
-        score_mapping = {'a': 3, 'b': 2.5, 'c': 2, 'd': 1, 'e': 0.5, 'f': 0.001}
+        word_mapping = {'a': "Very Likely (Around 90%)", 'b': "Likely (Around 70%)", 'c': "Somewhat Likely (Around 60%)",
+                        'd': "Somewhat Unlikely (Around 25%)", 'e': "Unlikely (Around 20%)", 'f': "Very Unlikely (Below 10%)"}
+        score_mapping = {'a': 3, 'b': 2.5,
+                         'c': 2, 'd': 1, 'e': 0.5, 'f': 0.001}
         multiple_choice_options = ""
         for k, v in word_mapping.items():
             multiple_choice_options += f"({k}) {v}\n"
         if self.args.input_is_chat:
-            likelihood_prompts = [f"<previous context>\n{context_and_perception_str}\n</previous context>\n\n<{target_agent}'s thoughts>\n{hypothesis}\n</{target_agent}'s thoughts>\n\n<response>\n{action}\n</response>\n\n{question}\n{multiple_choice_options}" for hypothesis in existing_hypotheses]
+            likelihood_prompts = [
+                f"<previous context>\n{context_and_perception_str}\n</previous context>\n\n<{target_agent}'s thoughts>\n{hypothesis}\n</{target_agent}'s thoughts>\n\n<response>\n{action}\n</response>\n\n{question}\n{multiple_choice_options}" for hypothesis in existing_hypotheses]
         else:
-            likelihood_prompts = [f"<previous context>\n{context_and_perception_str}\n</previous context>\n\n<{target_agent}'s thoughts>\n{hypothesis}\n</{target_agent}'s thoughts>\n\n<next action>{action}</next action>\n<note>{perception_history[-1]['action']}</note>\n\n{question}\n{multiple_choice_options}" for hypothesis in existing_hypotheses]
-        raw_predictions = self.tracer_model.batch_interact(likelihood_prompts, temperature=0, system_prompts=system_prompt, max_tokens=512)
+            likelihood_prompts = [
+                f"<previous context>\n{context_and_perception_str}\n</previous context>\n\n<{target_agent}'s thoughts>\n{hypothesis}\n</{target_agent}'s thoughts>\n\n<next action>{action}</next action>\n<note>{perception_history[-1]['action']}</note>\n\n{question}\n{multiple_choice_options}" for hypothesis in existing_hypotheses]
+        raw_predictions = self.tracer_model.batch_interact(
+            likelihood_prompts, temperature=0, system_prompts=system_prompt, max_tokens=512)
         reasonings = []
         answers = []
         for response in raw_predictions:
-            reasoning, a = response.split("Answer:")[0].strip(), response.split("Answer:")[-1].strip()
+            reasoning, a = response.split("Answer:")[0].strip(
+            ), response.split("Answer:")[-1].strip()
             reasonings.append(reasoning)
             answers.append(a)
-        raw_scores = np.array([map_response_to_score(j, score_mapping) for j in answers])
+        raw_scores = np.array(
+            [map_response_to_score(j, score_mapping) for j in answers])
         weights = softmax(raw_scores)
 
         results = {
@@ -678,7 +727,8 @@ class Tracer(BaseTracer):
         """
         Propagate the hypotheses on the target agent using the context, which is the text that does not contain the target agent's actions.
         """
-        prop_info = self.setup_propagation(existing_hypotheses, state_action, perceptions)
+        prop_info = self.setup_propagation(
+            existing_hypotheses, state_action, perceptions)
         target_agent = prop_info["target_agent"]
         context_history = prop_info["context_history"]
         perception_history = prop_info["perception_history"]
@@ -687,8 +737,10 @@ class Tracer(BaseTracer):
 
         system_prompt = f"You are an expert assistant trying to predict {target_agent}'s thoughts."
         propagation_prompts = [f"{self.trace_header}\n\n<previous context>\n{context_and_perception_str}\n</previous context>\n<previous prediction regarding {target_agent}'s thoughts>\n{hypothesis}\n</previous prediction regarding {target_agent}'s thoughts>\n\n<current context>{new_context}\n</current context>\n\nQuestion: What did {target_agent} believe?" for hypothesis in existing_hypotheses.texts]
-        propagated_texts = self.tracer_model.batch_interact(propagation_prompts, system_prompts=system_prompt, temperature=0, max_tokens=1024)
-        propagated_hypotheses = HypothesesSetV3(target_agent, context_history, perception_history, propagated_texts, existing_hypotheses.weights, parent_hypotheses=existing_hypotheses.hypotheses)
+        propagated_texts = self.tracer_model.batch_interact(
+            propagation_prompts, system_prompts=system_prompt, temperature=0, max_tokens=1024)
+        propagated_hypotheses = HypothesesSetV3(target_agent, context_history, perception_history,
+                                                propagated_texts, existing_hypotheses.weights, parent_hypotheses=existing_hypotheses.hypotheses)
 
         return propagated_hypotheses
 
@@ -697,16 +749,22 @@ class Tracer(BaseTracer):
         Rejuvenate hypotheses by paraphrasing the hypotheses
         """
         for h in existing_hypotheses.texts:
-            print(Panel(h, title="Low Variance Hypotheses", style="red", box=box.SIMPLE_HEAD))
+            print(Panel(h, title="Low Variance Hypotheses",
+                  style="red", box=box.SIMPLE_HEAD))
 
         if not self.args.use_perception_only:
             system_prompt = f"Your task is to paraphrase the following text. Make sure to keep the meaning of the text intact while rephrasing them. Do not add any additional comments."
-            revision_prompts = [f"{hypothesis}" for hypothesis in existing_hypotheses.texts]
-            revised_texts = self.tracer_model.batch_interact(revision_prompts, system_prompts=system_prompt, temperature=1, max_tokens=1024)
+            revision_prompts = [
+                f"{hypothesis}" for hypothesis in existing_hypotheses.texts]
+            revised_texts = self.tracer_model.batch_interact(
+                revision_prompts, system_prompts=system_prompt, temperature=1, max_tokens=1024)
             existing_hypotheses.texts = revised_texts
-        overall_text_diversity = 1 - overall_jaccard_similarity(existing_hypotheses.texts)
-        print(Panel(f"Text diversity: {overall_text_diversity}", title="Diversity of the Jittered Hypotheses", style="blue", box=box.SIMPLE_HEAD))
-        print(Panel("\n".join(existing_hypotheses.texts), title="Jittered hypotheses", style="blue", box=box.SIMPLE_HEAD))
+        overall_text_diversity = 1 - \
+            overall_jaccard_similarity(existing_hypotheses.texts)
+        print(Panel(f"Text diversity: {overall_text_diversity}",
+              title="Diversity of the Jittered Hypotheses", style="blue", box=box.SIMPLE_HEAD))
+        print(Panel("\n".join(existing_hypotheses.texts),
+              title="Jittered hypotheses", style="blue", box=box.SIMPLE_HEAD))
 
         return existing_hypotheses
 
@@ -715,7 +773,8 @@ class Tracer(BaseTracer):
         Weighted mean estimate of the hypotheses.
         """
         target_agent = hypotheses.target_agent
-        sorted_hypotheses = sorted(zip(hypotheses.texts, hypotheses.weights), key=lambda x: x[1], reverse=True)
+        sorted_hypotheses = sorted(
+            zip(hypotheses.texts, hypotheses.weights), key=lambda x: x[1], reverse=True)
 
         # only select up to cumulative weights of top_p
         top_hypotheses = []
@@ -728,14 +787,16 @@ class Tracer(BaseTracer):
 
         context_history = deepcopy(hypotheses.contexts)
         perception_history = deepcopy(hypotheses.perceptions)
-        context_and_perception_str = self.interleave_context_and_perception(context_history, perception_history, target_agent)  
+        context_and_perception_str = self.interleave_context_and_perception(
+            context_history, perception_history, target_agent)
         hypotheses_str = f"{context_and_perception_str}\n\n<{target_agent}'s thoughts>\n"
         for idx, (hypothesis, weight) in enumerate(top_hypotheses):
             hypotheses_str += f"**Prediction {str(idx + 1)} (Weight: {weight:.2f}):**\n{hypothesis}\n\n\n"
         hypotheses_str = hypotheses_str.strip()
         hypotheses_str += f"\n</{target_agent}'s thoughts>\n\nQuestion: What did {target_agent} believe?"
 
-        aggregated_hypothesis = self.tracer_model.interact(hypotheses_str, max_tokens=1234)
+        aggregated_hypothesis = self.tracer_model.interact(
+            hypotheses_str, max_tokens=1234)
         final_hypothesis = f"<{target_agent}'s updated thoughts>\n{aggregated_hypothesis}\n</{target_agent}'s updated thoughts>"
 
         return {'text': final_hypothesis, 'likelihood': list(hypotheses.weights), 'aggregated': True, 'context': hypotheses.contexts[-1], 'perception': hypotheses.perceptions[-1], 'hypothesis': aggregated_hypothesis}
@@ -751,20 +812,21 @@ class Tracer(BaseTracer):
             str: a summary of the hypothesis trace
         """
         target_agent = self.target_agent
-        averaged_hypotheses_list = [self.weighted_average_hypotheses(hypotheses) for hypotheses in hypotheses_list]
+        averaged_hypotheses_list = [self.weighted_average_hypotheses(
+            hypotheses) for hypotheses in hypotheses_list]
 
         trace_str = ""
         for idx, h in enumerate(averaged_hypotheses_list):
             context_str = ""
             if h['context']['state']:
-                context_str += f"{h['context']['state']}\n" # newly added
+                context_str += f"{h['context']['state']}\n"  # newly added
                 context_str += f"<note>{h['perception']['state']}</note>\n"
             if h['context']['action']:
                 context_str += f"{h['context']['action']}\n"
                 if h['perception']['action']:
                     context_str += f"<note>{h['perception']['action']}</note>"
             trace_str += f"<context {str(idx + 1)}>\n{context_str.strip()}\n\n<{target_agent}'s updated thoughts>{h['hypothesis']}</{target_agent}'s updated thoughts>\n</context {str(idx + 1)}>\n\n"
-            
+
         return {'text': trace_str.strip(), 'aggregated': True}
 
     def _trace(self, text: str, target_agent=None):
@@ -782,13 +844,16 @@ class Tracer(BaseTracer):
         # context_history = []
         for idx, (state_action, perceptions) in enumerate(zip(trajectory, perceptions_trajectory)):
             if idx == 0:
-                new_hypotheses = self.initialize(state_action=state_action, perceptions=perceptions)
+                new_hypotheses = self.initialize(
+                    state_action=state_action, perceptions=perceptions)
             else:
                 existing_hypotheses = hypotheses_list[-1]
-                new_hypotheses = self.propagate(existing_hypotheses, state_action=state_action, perceptions=perceptions)
+                new_hypotheses = self.propagate(
+                    existing_hypotheses, state_action=state_action, perceptions=perceptions)
 
             if state_action['action']:
-                weight_results = self.weigh(new_hypotheses, state_action['action'], mode="prompting")
+                weight_results = self.weigh(
+                    new_hypotheses, state_action['action'], mode="prompting")
                 new_hypotheses.update_weights(weight_results['weights'])
                 new_hypotheses.weight_details = weight_results
 
@@ -819,12 +884,12 @@ class Tracer(BaseTracer):
         traced_thoughts = self.chain_weighted_average_trace(hypotheses_list)
         # trace_text = f"{self.trace_header}\n\n{traced_thoughts['text']}"
 
-        self.dump(traced_thoughts, hypotheses_list)
+        # self.dump(traced_thoughts, hypotheses_list)
         # used to return trace_text but im gonna return the aggregated thing and the hypotheses I guess
         return traced_thoughts['text'], hypotheses_list
 
     def trace(self, input_text, target_agent="the user"):
-        # check if the input text, target_character is cached 
+        # check if the input text, target_character is cached
         # if target_agent is None:
         #     target_agent = self.identify_target(input_text)
         # if self.args.dataset != "mmtom":
@@ -840,9 +905,10 @@ class Tracer(BaseTracer):
         # if context in self.cache_db and target_agent in self.cache_db[context]:
         #     print(Panel(f">>> Using cached trace for {target_agent}!", style="yellow"))
         #     return self.cache_db[context][target_agent]
-        
+
         print(Panel(f">>> Tracing {target_agent}'s thoughts!", style="blue"))
-        trace_result_aggregate, hypotheses_list = self._trace(context, target_agent)
+        trace_result_aggregate, hypotheses_list = self._trace(
+            context, target_agent)
 
         # cache the trace result for the same input text and character
         # if context not in self.cache_db:
@@ -852,6 +918,7 @@ class Tracer(BaseTracer):
         #     self.cache_db[context][target_agent] = trace_result
 
         return trace_result_aggregate, hypotheses_list
+
 
 def load_tracer_model(args):
     if args.tracer_type == 'tracer':

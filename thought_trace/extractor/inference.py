@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
 
 import torch
 import torch.nn.functional as F
@@ -26,7 +27,10 @@ from thought_trace.extractor.schema import (
 logger = logging.getLogger(__name__)
 
 _WORD_RE = re.compile(r"\S+")
-_SELF_PRONOUNS = frozenset({"I", "i", "me", "Me", "my", "My", "myself", "Myself"})
+_SELF_PRONOUNS = frozenset(
+    {"I", "i", "me", "Me", "my", "My", "myself", "Myself", "ME"})
+_SELF_AGENT_NAMES = _SELF_PRONOUNS
+_SENTENCE_RE = re.compile(r"\s*([^\n.!?]+[.!?]?)", re.MULTILINE)
 
 
 def load_model(
@@ -112,10 +116,10 @@ def _run_inference(
     probs = F.softmax(emissions[0, : len(tokens)], dim=-1)
 
     return [
-            NERPrediction(
-                token=tokens[i],
-                label=ID_TO_LABEL.get(tid, "O"),
-                score=float(probs[i, tid].item()),
+        NERPrediction(
+            token=tokens[i],
+            label=ID_TO_LABEL.get(tid, "O"),
+            score=float(probs[i, tid].item()),
         )
         for i, tid in enumerate(tag_ids)
     ]
@@ -205,25 +209,26 @@ def _assemble_events(
     spans: list[_Span],
     raw_text: str,
 ) -> list[Event]:
-    action_indices = [
-        i for i, s in enumerate(spans)
-        if s.entity in ("ACTION", "PERCEPTION")
-    ]
-
-    if not action_indices:
+    action_spans = [s for s in spans if s.entity in ("ACTION", "PERCEPTION")]
+    if not action_spans:
         return _fallback_single_event(spans, raw_text)
 
     events: list[Event] = []
+    sentence_spans = _sentence_spans(raw_text)
 
-    boundaries = []
-    for idx, ai in enumerate(action_indices):
-        start = (action_indices[idx - 1] + ai + 1) // 2 if idx > 0 else 0
-        end = (ai + action_indices[idx + 1] + 1) // 2 if idx + 1 < len(action_indices) else len(spans)
-        boundaries.append((start, end, ai))
+    for eid, action_span in enumerate(action_spans):
+        sentence_start = action_span.char_start
+        sentence_end = action_span.char_end
+        for sent_start, sent_end, _ in sentence_spans:
+            if sent_start <= action_span.char_start < sent_end:
+                sentence_start = sent_start
+                sentence_end = sent_end
+                break
 
-    for eid, (region_start, region_end, action_idx) in enumerate(boundaries):
-        action_span = spans[action_idx]
-        region = spans[region_start:region_end]
+        region = [
+            s for s in spans
+            if s.char_end > sentence_start and s.char_start < sentence_end
+        ]
 
         participants: list[str] = []
         actor: str | None = None
@@ -259,11 +264,12 @@ def _assemble_events(
                 temporal_parts.append(s.text)
 
         if not participants:
-            participants = ["ME"]
+            participants = ["UNKNOWN"]
         if actor is None:
             actor = participants[0]
 
-        content = " ".join(content_parts) if content_parts else action_span.text
+        content = " ".join(
+            content_parts) if content_parts else action_span.text
         confidence = sum(all_scores) / len(all_scores) if all_scores else 0.0
         temporal_text = " ".join(temporal_parts) if temporal_parts else None
 
@@ -328,7 +334,8 @@ def _fallback_single_event(spans: list[_Span], raw_text: str) -> list[Event]:
         content=" ".join(content_parts) if content_parts else raw_text,
         sentence_type="state",  # no ACTION/PERCEPTION spans found — this is a state sentence
         belief_cue=has_belief_cue,
-        confidence=round(sum(all_scores) / len(all_scores), 4) if all_scores else 0.0,
+        confidence=round(sum(all_scores) / len(all_scores),
+                         4) if all_scores else 0.0,
         text_span=TextSpan(start=char_min, end=char_max),
         temporal_text=temporal_text,
         temporal_order=None,
@@ -413,13 +420,96 @@ def extract_entries(
     tokenizer: BertTokenizerFast,
     config: NERConfig,
     timestamps: list[datetime] | None = None,
-) -> list[DiaryEntry]:
+    output_format: Literal["entries", "trajectory"] = "entries",
+    target_agent: str = "ME",
+) -> list[DiaryEntry] | list[list[dict[str, str | None]]]:
     if timestamps is not None and len(timestamps) != len(texts):
         raise ValueError("timestamps length must match texts length")
 
     entries: list[DiaryEntry] = []
     for i, text in enumerate(texts):
         ts = timestamps[i] if timestamps else datetime.now(tz=timezone.utc)
-        entries.append(extract_entry(text, model, tokenizer, config, timestamp=ts))
+        entries.append(extract_entry(
+            text, model, tokenizer, config, timestamp=ts))
 
-    return assign_temporal_order(entries)
+    entries = assign_temporal_order(entries)
+    if output_format == "trajectory":
+        return [entry_to_trajectory(entry, target_agent=target_agent) for entry in entries]
+    return entries
+
+
+def _sentence_spans(text: str) -> list[tuple[int, int, str]]:
+    spans: list[tuple[int, int, str]] = []
+    for match in _SENTENCE_RE.finditer(text):
+        raw = match.group(1)
+        sentence = raw.strip()
+        if not sentence:
+            continue
+
+        # Drop optional leading list numbering like "1 " / "10 ".
+        sentence = re.sub(r"^\d+\s+", "", sentence)
+        start = match.start(1)
+        end = match.end(1)
+        spans.append((start, end, sentence))
+    return spans
+
+
+def entry_to_trajectory(
+    entry: DiaryEntry,
+    target_agent: str = "ME",
+) -> list[dict[str, str | None]]:
+    """Group sequential state sentences so each chunk ends in target-agent action."""
+    target = target_agent.strip()
+    target_upper = target.upper()
+
+    target_aliases = {target, target_upper}
+    if target_upper == "ME":
+        target_aliases.update(_SELF_AGENT_NAMES)
+
+    def _sentence_mentions_target(sentence: str) -> bool:
+        if target_upper == "ME":
+            return bool(re.search(r"\b(I|me|my|myself)\b",
+                                  sentence, flags=re.IGNORECASE))
+        return bool(re.search(rf"\b{re.escape(target)}\b",
+                              sentence, flags=re.IGNORECASE))
+
+    action_sentence_idxs: set[int] = set()
+    sentence_spans = _sentence_spans(entry.raw_text)
+    if not sentence_spans:
+        return []
+
+    for event in entry.events:
+        actor = event.actor.strip() if event.actor else ""
+        if actor not in target_aliases and actor.upper() not in target_aliases:
+            continue
+
+        if event.text_span is None:
+            continue
+
+        event_start = event.text_span.start
+        for idx, (sent_start, sent_end, sentence) in enumerate(sentence_spans):
+            if sent_start <= event_start < sent_end:
+                if _sentence_mentions_target(sentence):
+                    action_sentence_idxs.add(idx)
+                break
+
+    trajectory: list[dict[str, str | None]] = []
+    state_buffer: list[str] = []
+
+    for idx, (_, _, sentence) in enumerate(sentence_spans):
+        if idx in action_sentence_idxs:
+            trajectory.append({
+                "state": " ".join(state_buffer) if state_buffer else None,
+                "action": sentence,
+            })
+            state_buffer = []
+        else:
+            state_buffer.append(sentence)
+
+    if state_buffer:
+        trajectory.append({
+            "state": " ".join(state_buffer),
+            "action": None,
+        })
+
+    return trajectory
