@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import tempfile
+import uuid
 from typing import Optional
 
 from diary import get_container_path, get_entry, put_reply, should_continue_diary, start_diary
@@ -21,6 +22,7 @@ def _python_literal(value: Optional[str]) -> str:
 def rag_diary_response(
     raw_text: str,
     user_id: str,
+    session_id: str,
     top_k: int,
     checkpoint: Optional[str],
 ) -> str:
@@ -38,6 +40,7 @@ def rag_diary_response(
                 "from interface.rag_io import generate_rag_response; "
                 f"generate_rag_response({json.dumps(raw_text)}, "
                 f"{json.dumps(user_id)}, "
+                f"{json.dumps(session_id)}, "
                 f"{int(top_k)}, "
                 f"{_python_literal(container_checkpoint)}, "
                 f"{json.dumps(container_output)})"
@@ -55,10 +58,11 @@ def run_diary(
     top_k: int = 3,
     checkpoint: Optional[str] = None,
 ) -> None:
-    print(f"\n  Data files:")
-    print(f"    Store : {STORE_PATH}")
-    print(f"    Index : {os.path.join(INDEX_DIR, f'diary_{user_id}.faiss')}")
-    print(f"  Type 'quit' or 'exit' at any prompt to end the session.\n")
+    session_id = str(uuid.uuid4())
+    # print(f"\n  Data files:")
+    # print(f"    Store : {STORE_PATH}")
+    # print(f"    Index : {os.path.join(INDEX_DIR, f'diary_{user_id}.faiss')}")
+    # print(f"  Type 'quit' or 'exit' at any prompt to end the session.\n")
 
     start_diary(speech_enabled)
 
@@ -69,7 +73,9 @@ def run_diary(
             print("\nGoodbye! Your entries have been saved.\n")
             break
 
-        response = rag_diary_response(raw_text, user_id, top_k, checkpoint)
+        # get user input, aggregated hypotheses from throught trace, and retrieved entries from RAG about mental health counseling all summarized
+        response = rag_diary_response(
+            raw_text, user_id, session_id, top_k, checkpoint)
 
         put_reply(response, speech_enabled)
 
@@ -79,8 +85,11 @@ def run_diary(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Interactive Diary MVP")
-    parser.add_argument("--user", required=True,
-                        help="User ID (e.g. your name or UUID)")
+    parser.add_argument(
+        "--user",
+        default="user1",
+        help="User ID (e.g. your name or UUID)"
+    )
     parser.add_argument("--text", action="store_true",
                         help="Disable speech, use text only")
     parser.add_argument("--top-k", type=int, default=3,

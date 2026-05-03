@@ -16,14 +16,8 @@ if TYPE_CHECKING:
 # Patchable in tests via patch.object(retriever_mod, "INDEX_DIR", ...)
 INDEX_DIR = os.path.dirname(__file__)
 
-_HYPOTHESIS_SYSTEM = (
-    "You are a diary therapist. In one concise sentence, describe the writer's "
-    "core emotional or mental state based on this diary entry. Output only the sentence."
-)
-
-
 def _index_path(user_id: str) -> str:
-    return os.path.join(INDEX_DIR, f"diary_{user_id}.faiss")
+    return os.path.join(INDEX_DIR, f"{user_id}_query.faiss")
 
 
 def _load_index(user_id: str) -> faiss.IndexFlatIP:
@@ -35,17 +29,6 @@ def _load_index(user_id: str) -> faiss.IndexFlatIP:
 
 def _save_index(index: faiss.IndexFlatIP, user_id: str) -> None:
     faiss.write_index(index, _index_path(user_id))
-
-
-def _generate_hypothesis(raw_text: str, client: OpenAI) -> str:
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": _HYPOTHESIS_SYSTEM},
-            {"role": "user", "content": raw_text},
-        ],
-    )
-    return response.choices[0].message.content.strip()
 
 
 class HypothesisRetriever:
