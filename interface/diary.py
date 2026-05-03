@@ -181,10 +181,10 @@ def start_diary(speech_enabled=True):
         speak("Welcome to Interactive Diary!")
         
     print_assistant(
-        "Would you like me to coach, or just be listening?"
+        "Would you like me to coach, or just listen?"
     )
     if speech_enabled:
-        speak("Would you like me to coach, or just be listening?")
+        speak("Would you like me to coach, or just listen?")
     
     diary_style = input(
         "[COACH/listen]: ").strip().lower()
@@ -193,10 +193,6 @@ def start_diary(speech_enabled=True):
     print_diary(f"You chose: {diary_style} mode.")
     
     return listen
-    
-    
-    
-    
 
 
 def get_entry(speech_enabled=True, first_entry=False):
@@ -207,13 +203,42 @@ def get_entry(speech_enabled=True, first_entry=False):
         speak(log_text)
         print("Listening for your diary entry... Stop recording with Ctrl+C when done.")
         text = stt()
-        print_diary(f"Your diary entry: {text}")
     else:
         text = input("Your diary entry: ")
+    print_diary(f"Your diary entry: {text}")
 
     # text formatting?
     return text
 
+def diary_response(
+    raw_text: str,
+    user_id: str,
+    session_id: str,
+    top_k: int,
+    listen: bool,
+    ablation: bool,
+) -> str:
+    call = "gpt" if ablation else "rag"
+    with tempfile.NamedTemporaryFile(suffix=".txt", dir=".") as tmp:
+        output_path = tmp.name
+        _, container_output = get_container_path(output_path)
+        subprocess.run([
+            "docker", "compose", "exec", "-T", "app",
+            "python", "-c",
+            (
+                f"from interface.io_rag import generate_{call}_response; "
+                f"generate_{call}_response({json.dumps(raw_text)}, "
+                f"{json.dumps(user_id)}, "
+                f"{json.dumps(session_id)}, "
+                f"{int(top_k)}, "
+                f"{listen}, "
+                f"{json.dumps(container_output)})"
+            ),
+        ], check=True, stdout=subprocess.DEVNULL)  # hide standard output
+
+        with open(output_path, "r") as f:
+            response = f.read().strip()
+    return response
 
 def put_reply(text, speech_enabled=True):
     SPEECH_ENABLED = speech_enabled

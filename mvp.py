@@ -5,40 +5,11 @@ import json
 import os
 import subprocess
 import tempfile
+import time
 import uuid
 from typing import Optional
 
-from interface.diary import get_container_path, get_entry, put_reply, should_continue_diary, start_diary
-
-def rag_diary_response(
-    raw_text: str,
-    user_id: str,
-    session_id: str,
-    top_k: int,
-    listen: bool,
-) -> str:
-    print("Getting a response...\n")
-    with tempfile.NamedTemporaryFile(suffix=".txt", dir=".") as tmp:
-        output_path = tmp.name
-        _, container_output = get_container_path(output_path)
-        subprocess.run([
-            "docker", "compose", "exec", "-T", "app",
-            "python", "-c",
-            (
-                "from interface.io_rag import generate_rag_response; "
-                f"generate_rag_response({json.dumps(raw_text)}, "
-                f"{json.dumps(user_id)}, "
-                f"{json.dumps(session_id)}, "
-                f"{int(top_k)}, "
-                f"{listen}, "
-                f"{json.dumps(container_output)})"
-            ),
-        ], check=True)
-
-        with open(output_path, "r") as f:
-            response = f.read().strip()
-    return response
-
+from interface.diary import diary_response, get_entry, put_reply, should_continue_diary, start_diary
 
 def run_diary(
     user_id: str,
@@ -57,10 +28,17 @@ def run_diary(
             break
 
         # get user input, aggregated hypotheses from throught trace, and retrieved entries from RAG about mental health counseling all summarized
-        response = rag_diary_response(
-            raw_text, user_id, session_id, top_k, listen)
-
-        put_reply(response, speech_enabled)
+        start_time = time.perf_counter()
+        print("Getting a response...\n")
+        response = diary_response(
+            raw_text, user_id, session_id, top_k, listen, ablation=False)
+        response = diary_response(
+            raw_text, user_id, session_id, top_k, listen, ablation=True)
+        
+        elapsed_seconds = time.perf_counter() - start_time
+        print(f"Generation runtime: {elapsed_seconds:.1f} seconds")
+        put_reply(f"A: {response}", speech_enabled)
+        put_reply(f"B: {response}", speech_enabled)
 
         if not should_continue_diary(speech_enabled):
             break
