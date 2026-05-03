@@ -1,14 +1,28 @@
 services:
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    image: interactive-diary-app
     container_name: interactive-diary
-    command: sleep infinity  
+
+    # DEV MODE: keep container alive
+    command: ["tail", "-f", "/dev/null"]
+
+    working_dir: /app
+
     volumes:
       - .:/app
+
     environment:
-      - PYTHONPATH=/app
-      - PYTHONUNBUFFERED=1
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: "1"
+
     env_file:
       - .env
+
     restart: unless-stopped
-    stdin_open: true      # -i
+
+    stdin_open: true
+    tty: true

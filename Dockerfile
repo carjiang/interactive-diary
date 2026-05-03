@@ -1,26 +1,31 @@
-FROM python:3.12
+FROM python:3.12-slim
 
-# Install ffmpeg and protaudio for audio processing
+# Avoid interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# System dependencies (audio + ffmpeg)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ffmpeg \
         portaudio19-dev \
+        build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Update pip
+# Python setup
 RUN pip install --upgrade pip
 
-# Install PyTorch
-RUN pip install --no-cache-dir torch torchvision torchaudio -f https://download.pytorch.org/whl/torch_stable.html
+# Install PyTorch (CPU build by default)
+RUN pip install --no-cache-dir \
+    torch torchvision torchaudio \
+    -f https://download.pytorch.org/whl/torch_stable.html
 
-# Install the application dependencies
-COPY docker_requirements.txt ./
-RUN pip install --no-cache-dir -r docker_requirements.txt
+# Install app dependencies first (better caching)
+COPY docker_requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
-# Set working directory and Python path so local packages are importable
+# App directory
 WORKDIR /app
 ENV PYTHONPATH=/app
 
-# Copy in the source code
+# Copy source last (so code changes don’t bust dependency cache)
 COPY . /app
-
