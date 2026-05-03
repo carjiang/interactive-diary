@@ -59,14 +59,17 @@ def generate_rag_response(
     output_path: str,
 ) -> None:
     
-    aggregation = trace_thought.main(raw_text)
-    print(aggregation)
-    response = "idk" + aggregation
-    # client = OpenAI()
-    # retriever = HypothesisRetriever(client=client)
-    # timestamp = datetime.now(tz=timezone.utc)
+    # aggregation = trace_thought.main(raw_text)
+    # print(aggregation)
+    # response = "idk" + aggregation
 
-    # retrieved = retriever.retrieve_similar(raw_text, user_id=user_id, top_k=top_k)
+    # ====== BEGIN RAG STUFF ======
+    client = OpenAI()
+    retriever = HypothesisRetriever(client=client)
+    timestamp = datetime.now(tz=timezone.utc)
+
+    retrieved = retriever.retrieve_similar(raw_text, user_id=user_id, top_k=top_k)
+    print(retrieved)
     # augmented_prompt = build_augmented_prompt(raw_text, retrieved)
 
     # extractor = _load_extractor(checkpoint)
@@ -81,11 +84,12 @@ def generate_rag_response(
     #     ],
     # ).choices[0].message.content.strip()
 
-    # retriever.add_entry(str(uuid.uuid4()), timestamp, raw_text, user_id)
+    retriever.add_entry(str(uuid.uuid4()), timestamp, raw_text, user_id)
+    # ====== END RAG STUFF ======
 
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    with open(output_path, "w") as f:
-        f.write(response)
+    # os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    # with open(output_path, "w") as f:
+    #     f.write(response)
 
 if __name__ == '__main__':
     trace_thought.main()

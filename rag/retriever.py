@@ -62,8 +62,8 @@ class HypothesisRetriever:
         raw_text: str,
         user_id: str,
     ) -> None:
-        hypothesis = _generate_hypothesis(raw_text, self.client)
-        append_record(entry_id, timestamp, raw_text, user_id, hypothesis)
+
+        append_record(entry_id, timestamp, raw_text, user_id)
         vector = embed_text(raw_text, self.client)
         index = _load_index(user_id)
         index.add(vector.reshape(1, -1))

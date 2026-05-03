@@ -12,14 +12,12 @@ def append_record(
     timestamp: datetime,
     raw_text: str,
     user_id: str,
-    hypothesis: str = "",
 ) -> None:
     record = {
         "entry_id": entry_id,
         "timestamp": timestamp.isoformat(),
         "raw_text": raw_text,
         "user_id": user_id,
-        "hypothesis": hypothesis,
     }
     with open(STORE_PATH, "a") as f:
         f.write(json.dumps(record) + "\n")
