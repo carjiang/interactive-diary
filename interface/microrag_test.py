@@ -62,7 +62,7 @@ def run_diary(
 
     # start_diary(speech_enabled)
 
-    rag_diary_response("best", user_id, top_k, checkpoint)
+    rag_diary_response("I went climbing today.", user_id, top_k, checkpoint)
 
 
 

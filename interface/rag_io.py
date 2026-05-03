@@ -75,10 +75,17 @@ def generate_rag_response(
     #   'raw_text': a str of what the patient said to the therapist
     #   'response': a list of strs containing possible responses (guaranteed at least 1 i hope)
     #   'similarity_score' a float with the similarity value. i think its in [0, 1]?
+    #   other things that don't matter
     # } 
     retrieved = retriever.retrieve_similar(raw_text, user_id='therapist', top_k=top_k)
-    response = response + retrieved[0]['response'][0]
-    print(response)
+    
+    # filter out if less than .4
+    for i, r in enumerate(retrieved):
+        if r['similarity_score'] < .4:
+            retrieved = retrieved[:i]
+            break
+    print(retrieved)
+
     
     # print(retrieved)
     # augmented_prompt = build_augmented_prompt(raw_text, retrieved)
