@@ -37,7 +37,7 @@ def play_audio(path):
 
 # pretty print new section
 def print_section(text):
-    print(Panel(text, title="Interactive Diary", style="bold magenta"))
+    print(Panel(text, title="Dory, the Interactive Diary", style="bold magenta"))
 
 
 def speak(text):
@@ -113,7 +113,7 @@ def stt_container(audio_path):
         subprocess.run([
             "docker", "compose", "exec", "-T", "app",
             "python", "-c",
-            f"from interface.io import audio_to_text; audio_to_text('{container_audio}', '{container_output}')"
+            f"from interface.io_audio import audio_to_text; audio_to_text('{container_audio}', '{container_output}')"
         ], check=True, stdout=subprocess.DEVNULL)  # hide standard output
 
         with open(output_path, 'r') as f:
@@ -137,7 +137,7 @@ def gpt_diary_response(text):
         subprocess.run([
             "docker", "compose", "exec", "-T", "app",
             "python", "-c",
-            f"from interface.io import generate_gpt_response; generate_gpt_response({json.dumps(text)}, {json.dumps(container_output)})"
+            f"from interface.io_audio import generate_gpt_response; generate_gpt_response({json.dumps(text)}, {json.dumps(container_output)})"
         ], check=True, stdout=subprocess.DEVNULL)  # hide standard output
 
         with open(output_path, 'r') as f:

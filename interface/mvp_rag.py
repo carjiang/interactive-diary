@@ -11,10 +11,6 @@ from typing import Optional
 from diary import get_container_path, get_entry, put_reply, should_continue_diary, start_diary
 
 
-STORE_PATH = os.path.join("rag", "diary_store.jsonl")
-INDEX_DIR = "rag"
-
-
 def _python_literal(value: Optional[str]) -> str:
     return "None" if value is None else json.dumps(value)
 
@@ -37,7 +33,7 @@ def rag_diary_response(
             "docker", "compose", "exec", "-T", "app",
             "python", "-c",
             (
-                "from interface.rag_io import generate_rag_response; "
+                "from interface.io_rag import generate_rag_response; "
                 f"generate_rag_response({json.dumps(raw_text)}, "
                 f"{json.dumps(user_id)}, "
                 f"{json.dumps(session_id)}, "
@@ -59,10 +55,6 @@ def run_diary(
     checkpoint: Optional[str] = None,
 ) -> None:
     session_id = str(uuid.uuid4())
-    # print(f"\n  Data files:")
-    # print(f"    Store : {STORE_PATH}")
-    # print(f"    Index : {os.path.join(INDEX_DIR, f'diary_{user_id}.faiss')}")
-    # print(f"  Type 'quit' or 'exit' at any prompt to end the session.\n")
 
     start_diary(speech_enabled)
 
