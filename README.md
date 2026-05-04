@@ -27,7 +27,7 @@ Hi welcome to Interactive Diary! This is an interactive diary which utilizes tho
 1. Start Docker Desktop in background
 2. Run `docker compose up -d`
 3. Activate virtual environment
-4. Run `python interface/mvp.py` from the project root
+4. Run `python mvp.py` from the project root
 5. After you're done, stop the docker container with `docker compose down`
 5. Enjoy!
 
@@ -36,7 +36,7 @@ Hi welcome to Interactive Diary! This is an interactive diary which utilizes tho
 - Use first-person
 - Once entries are recorded, they can be edited
 - Feel free to use our program to journal or diary about anything. We do NOT store or have access to any logs.
-- If you cannot get audio to work, apply a text tag `python interface/mvp.py --text`
+- If you cannot get audio to work, apply a text tag `python mvp.py --text`
 - Interactive Diary responses may take multi
 
 ### Further:
