@@ -13,8 +13,8 @@ Hi welcome to Interactive Diary!
 2. Paste `OPENAI_API_KEY=` followed by the API key we send to you privately. There is $3 allocated on this key. Please do not share this API key or use it for any other purposes. If you run out of credits please let us know so we can give more!
 
 ### Model Weights
-1. Download and unzip models weights. It should be a folder called `extractor_checkpoint/`
-1. Move `extractor_checkpoint/` to `/extractor/checkpoints/extractor_checkpoint/`
+1. Download and unzip models weights. It should be a folder called `checkpoints/`
+1. Move `checkpoints/` to `thought_trace/extractor/checkpoints/`
 
 ### Docker
 3. Install [Docker Desktop](https://docs.docker.com/desktop/), and update to the latest version

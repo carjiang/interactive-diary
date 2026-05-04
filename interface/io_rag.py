@@ -16,10 +16,10 @@ from rag.retriever import HypothesisRetriever
 from thought_trace.endpoint import trace_thought
 from interface.prompts import (
     _RAG_KEY_PROMPT,
-    _RESPONSE_PROMPT,
-    _RESPONSE_PROMPT_LISTENING,
-    _ENTRY_SUMMARY_PROMPT,
+    _COACHING_RESPONSE_PROMPT,
+    _LISTENING_RESPONSE_PROMPT,
     _COMPARATOR_PROMPT,
+    _LISTENING_AND_COACHING_RESPONSE_PROMPT,
 )
 client = OpenAI()
 
@@ -121,14 +121,29 @@ def generate_rag_response(
 ) -> None:
 
     tom = trace_thought.main(diary_entry)
-    tom = _call_gpt(
-            "Given the following sequence of sentences (a diary entry), updated user beliefs (theory of mind hypotheses), summarize succinctly in a paragraph the user's beliefs/thoughts/feelings. Do not include things which are explicitly mentioned in the user's text.", f"{tom}\n\nSummary:"
-        )
-    
-    # TODO: Does the user want x, y, or z? Do they want advice or do they just want to vent?
+    coaching_intent_raw = _call_gpt(
+        (
+            "You are a strict JSON generator. Return ONLY a JSON object with this schema: "
+            '{"wants_coaching_or_advice": boolean, "confidence": number, "evidence": string}. '
+            "Answer whether the user appears to want coaching/advice."
+        ),
+        f"Diary entry:\n{diary_entry}\n\nTheory of mind hypotheses:\n{tom}\n\nJSON:",
+    )
+    try:
+        coaching_intent = json.loads(coaching_intent_raw)
+    except json.JSONDecodeError:
+        coaching_intent = {
+            "wants_coaching_or_advice": False,
+            "confidence": 0.0,
+            "evidence": "None.",
+        }
 
     # ====== Get RAG Keys =======
-    diary_tom = f"Diary text: {diary_entry}\n\n Theory of Mind Hypothesis: {tom}"
+    diary_tom = (
+        f"Diary text: {diary_entry}\n\n"
+        f"Theory of Mind Hypothesis: {tom}\n\n"
+        f"Coaching Intent: {json.dumps(coaching_intent)}"
+    )
     
     rag_key = _call_gpt(_RAG_KEY_PROMPT, diary_tom + "\n\nSummary:")
 
@@ -167,7 +182,7 @@ def generate_rag_response(
     # print("PAST SESSION HISTORY", past_session_history)
 
     # ====== Get Model Response =======
-    prompt = _RESPONSE_PROMPT_LISTENING if listen else _RESPONSE_PROMPT
+    prompt = _COACHING_RESPONSE_PROMPT  if coaching_intent["wants_coaching_or_advice"] else _LISTENING_RESPONSE_PROMPT
     diary_tom_rag_history = f"{diary_tom}\n\nRetrieved counseling entries: {retrieved}\n\nPast session summaries:\n{past_session_history}"
     print("DIARY_TOM_RAG_HISTORY", diary_tom_rag_history)
     response = _call_gpt(
@@ -227,8 +242,8 @@ def generate_gpt_response(
     # print("PAST SESSION HISTORY", past_session_history)
 
     # ====== Get Model Response =======
-    prompt = _RESPONSE_PROMPT_LISTENING if listen else _RESPONSE_PROMPT
-    diary_tom_rag_history = f"Diary: {diary_entry}\n\nTheory of Mind Hypotheses: None\n\nRetrieved counseling entries: None\n\nPast session summaries:\n{past_session_history}"
+    prompt = _LISTENING_AND_COACHING_RESPONSE_PROMPT
+    diary_tom_rag_history = f"Diary: {diary_entry}\n\nPast session summaries:\n{past_session_history}"
     response = _call_gpt(
         prompt,
         f"{diary_tom_rag_history} \n\nResponse:",

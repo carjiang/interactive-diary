@@ -62,7 +62,7 @@ def speak(text):
 
 
 def record_and_save(output_path):
-    q = queue.SimpleQueue()
+    q = queue.Queue()
     recording = []
     callback_warnings = []
     start_time = time.monotonic()
@@ -81,7 +81,7 @@ def record_and_save(output_path):
             samplerate=SAMPLERATE,
             channels=CHANNELS,
             dtype="float32",
-            blocksize=0,
+            blocksize=1024,
             callback=callback
         ):
             while True:
@@ -89,26 +89,21 @@ def record_and_save(output_path):
                     print(f"\nReached max recording duration ({DURATION} seconds).")
                     break
 
-                # Drain all available chunks without blocking.
-                drained = False
-                while True:
+                for _ in range(10):
                     try:
                         chunk = q.get_nowait()
                         recording.append(chunk)
                         chunk_count += 1
                         total_frames += chunk.shape[0]
-                        drained = True
                     except queue.Empty:
                         break
-
                 # Small sleep avoids a busy-spin while staying responsive.
-                if not drained:
-                    time.sleep(0.01)
+                time.sleep(0.005)
     except KeyboardInterrupt:
         print("\nStopped recording.")
     finally:
         # Keep any final chunks queued right before stopping.
-        while True:
+        for _ in range(10):
             try:
                 recording.append(q.get_nowait())
             except queue.Empty:
