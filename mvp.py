@@ -1,13 +1,8 @@
 from __future__ import annotations
 
 import argparse
-import json
-import os
-import subprocess
-import tempfile
 import time
 import uuid
-from typing import Optional
 
 from interface.diary import diary_response, get_entry, put_reply, should_continue_diary, start_diary
 
@@ -33,13 +28,13 @@ def run_diary(
         print("Getting a response...\n")
         response = diary_response(
             raw_text, user_id, session_id, top_k, listen, ablation=False)
-        response = diary_response(
+        response2 = diary_response(
             raw_text, user_id, session_id, top_k, listen, ablation=True)
         
         elapsed_seconds = time.perf_counter() - start_time
         print(f"Generation runtime: {elapsed_seconds:.1f} seconds")
         put_reply(f"A: {response}", speech_enabled)
-        put_reply(f"B: {response}", speech_enabled)
+        put_reply(f"B: {response2}", speech_enabled)
 
         if not should_continue_diary(speech_enabled):
             break

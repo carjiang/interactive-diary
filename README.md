@@ -1,7 +1,7 @@
 # interactive-diary
 CS 4701 project for Michael, Armaan, Carly
 
-Hi welcome to Interactive Diary!
+Hi welcome to Interactive Diary! This is an interactive diary which utilizes thought tracing to extract a user's beliefs, retrieval over counselling conversations dataset, and calls to Chat GPT.
 
 ## Set Up
 ### Virtual Environment
@@ -32,12 +32,12 @@ Hi welcome to Interactive Diary!
 5. Enjoy!
 
 
-### Prompt Guidelines:
+### Usage Guidelines:
 - Use first-person
 - Once entries are recorded, they can be edited
 - Feel free to use our program to journal or diary about anything. We do NOT store or have access to any logs.
 - If you cannot get audio to work, apply a text tag `python interface/mvp.py --text`
-
+- Interactive Diary responses may take multi
 
 ### Further:
 - Do not share your OpenAI API key
@@ -46,4 +46,3 @@ Hi welcome to Interactive Diary!
 
 
 
-https://coachingfederation.org/blog/what-makes-a-great-coach/g 
