@@ -34,15 +34,15 @@ Hi welcome to Interactive Diary! This is an interactive diary which utilizes tho
 
 ### Usage Guidelines:
 - Use first-person
-- Once entries are recorded, they can be edited
 - Feel free to use our program to journal or diary about anything. We do NOT store or have access to any logs.
+- Your diary session can be as short or long as you want: you can choose when to end the session (by entering "no" when it asks if you want to continue), or whether to continue conversing.
+- Fill out survey. Keep track of ablation key for submission to the survey.
 - If you cannot get audio to work, apply a text tag `python mvp.py --text`
-- Interactive Diary responses may take multi
+- Don't abuse use of your API key; only use it here and don't use the diary for hours
 
-### Further:
+### Security Concerns:
 - Do not share your OpenAI API key
 - Do not commit/upload the docker image
-- Do not share things that are too personal; all 
 
 
 

@@ -3,8 +3,9 @@ from __future__ import annotations
 import argparse
 import time
 import uuid
+import random 
 
-from interface.diary import diary_response, get_entry, put_reply, should_continue_diary, start_diary
+from interface.diary import diary_response, get_entry, put_reply, get_ablation_preference, should_continue_diary, start_diary
 
 def run_diary(
     user_id: str,
@@ -13,9 +14,10 @@ def run_diary(
 ) -> None:
     session_id = str(uuid.uuid4())
 
-    listen = start_diary(speech_enabled)
+    start_diary(speech_enabled)
 
     first_entry = True
+    ablation_key = ""
     while True:
         raw_text = get_entry(speech_enabled, first_entry=first_entry)
 
@@ -26,17 +28,27 @@ def run_diary(
         # get user input, aggregated hypotheses from throught trace, and retrieved entries from RAG about mental health counseling all summarized
         start_time = time.perf_counter()
         print("Getting a response...\n")
-        response = diary_response(
-            raw_text, user_id, session_id, top_k, listen, ablation=False)
-        response2 = diary_response(
-            raw_text, user_id, session_id, top_k, listen, ablation=True)
+        response = [None, None]
+        ablation_i = random.randint(0,1)
+        response[1-ablation_i] = diary_response(
+            raw_text, user_id, session_id, top_k, ablation=False)
+        response[ablation_i] = diary_response(
+            raw_text, user_id, session_id, top_k, ablation=True)
+        
         
         elapsed_seconds = time.perf_counter() - start_time
         print(f"Generation runtime: {elapsed_seconds:.1f} seconds")
-        put_reply(f"A: {response}", speech_enabled)
-        put_reply(f"B: {response2}", speech_enabled)
-
-        if not should_continue_diary(speech_enabled):
+        put_reply(f"Response A: {response[0]}", speech_enabled)
+        put_reply(f"Response B: {response[1]}", speech_enabled)
+        
+        prefer_A = get_ablation_preference()
+        if (prefer_A and (ablation_i == 1)) or (not prefer_A and (ablation_i == 0)):
+            ablation_key += "1"
+        else:
+            ablation_key += "0"
+        
+            
+        if not should_continue_diary(ablation_key, speech_enabled):
             break
         
         first_entry = False

@@ -116,7 +116,6 @@ def generate_rag_response(
     user_id: str,
     session_id: str,
     top_k: int,
-    listen: bool,
     output_path: str,
 ) -> None:
 
@@ -190,12 +189,12 @@ def generate_rag_response(
         f"{diary_tom_rag_history} \n\nResponse:",
     )
     
-    # TODO: Use this to finetune prompt.
-    comparator_response = _call_gpt(
-        _COMPARATOR_PROMPT,
-        f"{diary_tom_rag_history} \n\nResponse:",
-    )
-    print("\n\nCOMPARATOR RESPONSE", comparator_response)
+    # # TODO: Use this to finetune prompt.
+    # comparator_response = _call_gpt(
+    #     _COMPARATOR_PROMPT,
+    #     f"{diary_tom_rag_history} \n\nResponse:",
+    # )
+    # print("\n\nCOMPARATOR RESPONSE", comparator_response)
 
     # ====== Create and store summary =======
     summary = f"Diary Entry: {diary_entry}\n\nResponse: {response}"
@@ -224,7 +223,6 @@ def generate_gpt_response(
     user_id: str,
     session_id: str,
     top_k: int,
-    listen: bool,
     output_path: str,
 ) -> None:
     user_id = user_id + "_gpt_ablation"

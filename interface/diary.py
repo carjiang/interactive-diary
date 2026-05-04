@@ -196,19 +196,17 @@ def start_diary(speech_enabled=True):
     if speech_enabled:
         speak("Welcome to Interactive Diary!")
         
-    print_assistant(
-        "Would you like me to coach, or just listen?"
-    )
-    if speech_enabled:
-        speak("Would you like me to coach, or just listen?")
+    # print_assistant(
+    #     "Would you like me to coach, or just listen?"
+    # )
+    # if speech_enabled:
+    #     speak("Would you like me to coach, or just listen?")
     
-    diary_style = input(
-        "[COACH/listen]: ").strip().lower()
-    listen = (diary_style in ("listen", "just listen", "listening", "just listening", "just be listening") ) or (diary_style[0] == "l")
-    diary_style = "listen" if listen else "COACH"
-    print_diary(f"You chose: {diary_style} mode.")
-    
-    return listen
+    # diary_style = input(
+    #     "[COACH/listen]: ").strip().lower()
+    # listen = (diary_style in ("listen", "just listen", "listening", "just listening", "just be listening") ) or (diary_style[0] == "l")
+    # diary_style = "listen" if listen else "COACH"
+    # print_diary(f"You chose: {diary_style} mode.")
 
 
 def get_entry(speech_enabled=True, first_entry=False):
@@ -230,7 +228,6 @@ def diary_response(
     user_id: str,
     session_id: str,
     top_k: int,
-    listen: bool,
     ablation: bool,
 ) -> str:
     call = "gpt" if ablation else "rag"
@@ -246,7 +243,6 @@ def diary_response(
                 f"{json.dumps(user_id)}, "
                 f"{json.dumps(session_id)}, "
                 f"{int(top_k)}, "
-                f"{listen}, "
                 f"{json.dumps(container_output)})"
             ),
         ], check=True)  # hide standard output
@@ -261,14 +257,24 @@ def put_reply(text, speech_enabled=True):
     if SPEECH_ENABLED:
         speak("Thanks for sharing! " + text)
 
-def should_continue_diary(speech_enabled=True):
+def get_ablation_preference():
+    preference = input(
+        "\nWhich response do you prefer? [A/B]: ").strip().lower()
+    prefer_A = preference in ("a", "response a", "option a")
+    if not prefer_A and preference not in ("b", "response b", "option b"):
+        print("Invalid input. Please enter A or B.")
+        return get_ablation_preference()
+    return prefer_A
+
+def should_continue_diary(ablation_key, speech_enabled=True):
     keep_going = input(
         "\nWould you like to write another entry? [Y/n]: ").strip().lower()
     y = keep_going not in ("n", "no", "stop", "quit", "exit", "q")
     if not y:
-        print_assistant("Bye-bye! Please fill out the survey. :)")
+        prompt = f"Bye-bye! Your ablation key is {ablation_key}. Please fill out the survey. :)"
+        print_assistant(prompt)
         if speech_enabled:
-            speak("Bye-bye! Please fill out the survey!")
+            speak(prompt)
     return y
 
 
