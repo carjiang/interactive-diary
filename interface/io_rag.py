@@ -27,6 +27,7 @@ client = OpenAI()
 
 
 _SUMMARY_STORE_PATH = "session_summaries.jsonl"
+_LOG_DIR = "session_logs"
 
 
 def _call_gpt(system_prompt: str, user_prompt: str) -> str:
@@ -36,6 +37,7 @@ def _call_gpt(system_prompt: str, user_prompt: str) -> str:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
+        max_tokens=300,
     ).choices[0].message.content.strip()
     return response
 
@@ -83,6 +85,32 @@ def _store_session_summary(
         f.write(json.dumps(payload) + "\n")
 
 
+def _safe_name(value: str) -> str:
+    return "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in value)
+
+
+def _append_markdown_turn(
+    *,
+    user_id: str,
+    session_id: str,
+    timestamp: datetime,
+    mode: str,
+    diary_entry: str,
+    response: str,
+) -> None:
+    os.makedirs(_LOG_DIR, exist_ok=True)
+    filename = f"{_safe_name(user_id)}__{_safe_name(session_id)}.md"
+    path = os.path.join(_LOG_DIR, filename)
+
+    with open(path, "a") as f:
+        f.write(f"## {timestamp.isoformat()} ({mode})\n\n")
+        f.write("### Diary Entry\n\n")
+        f.write(f"{diary_entry.strip()}\n\n")
+        f.write("### Response\n\n")
+        f.write(f"{response.strip()}\n\n")
+        f.write("---\n\n")
+
+
 def generate_rag_response(
     diary_entry: str,
     user_id: str,
@@ -93,9 +121,15 @@ def generate_rag_response(
 ) -> None:
 
     tom = trace_thought.main(diary_entry)
+    tom = _call_gpt(
+            "Given the following sequence of sentences (a diary entry), updated user beliefs (theory of mind hypotheses), summarize succinctly in a paragraph the user's beliefs/thoughts/feelings. Do not include things which are explicitly mentioned in the user's text.", f"{tom}\n\nSummary:"
+        )
+    
+    # TODO: Does the user want x, y, or z? Do they want advice or do they just want to vent?
 
     # ====== Get RAG Keys =======
     diary_tom = f"Diary text: {diary_entry}\n\n Theory of Mind Hypothesis: {tom}"
+    
     rag_key = _call_gpt(_RAG_KEY_PROMPT, diary_tom + "\n\nSummary:")
 
     # ====== BEGIN RAG STUFF ======
@@ -112,10 +146,14 @@ def generate_rag_response(
             retrieved = retrieved[:i]
             break
     retrieved = "\n".join(
-        f"{i}. Context: {r['raw_text']}\nExample Response: {random.sample(r['response'], k=min(1,len(r['response'])))[0]}" for i, r in enumerate(retrieved)
-    ) # randomly select one possible response
+        f"{i}. Context: {r['raw_text']}\nExample Response: {random.sample(r['response'], k=min(5,len(r['response'])))}" for i, r in enumerate(retrieved) # sample up to 5 responses for each
+    )
     if retrieved == "":
         retrieved = "None"
+    else:
+        retrieved = _call_gpt(
+            "Given the following mental health counselling examples, summarize brief what each client's problem is and generally what approaches counsellors take in reply:", f"{retrieved}\n\nSummary:"
+        )
 
     # ====== Get History ======
     past_summaries = _load_past_session_history(
@@ -138,11 +176,11 @@ def generate_rag_response(
     )
     
     # TODO: Use this to finetune prompt.
-    # comparator_response = _call_gpt(
-    #     _COMPARATOR_PROMPT,
-    #     f"{diary_tom_rag_history} \n\nResponse:",
-    # )
-    # print("\n\nCOMPARATOR RESPONSE", comparator_response)
+    comparator_response = _call_gpt(
+        _COMPARATOR_PROMPT,
+        f"{diary_tom_rag_history} \n\nResponse:",
+    )
+    print("\n\nCOMPARATOR RESPONSE", comparator_response)
 
     # ====== Create and store summary =======
     summary = f"Diary Entry: {diary_entry}\n\nResponse: {response}"
@@ -151,6 +189,14 @@ def generate_rag_response(
         session_id=session_id,
         timestamp=timestamp,
         summary=summary,
+    )
+    _append_markdown_turn(
+        user_id=user_id,
+        session_id=session_id,
+        timestamp=timestamp,
+        mode="rag",
+        diary_entry=diary_entry,
+        response=response,
     )
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -195,6 +241,14 @@ def generate_gpt_response(
         session_id=session_id,
         timestamp=timestamp,
         summary=summary,
+    )
+    _append_markdown_turn(
+        user_id=user_id,
+        session_id=session_id,
+        timestamp=timestamp,
+        mode="gpt_ablation",
+        diary_entry=diary_entry,
+        response=response,
     )
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)

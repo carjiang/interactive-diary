@@ -20,8 +20,9 @@ def run_diary(
 
     listen = start_diary(speech_enabled)
 
+    first_entry = True
     while True:
-        raw_text = get_entry(speech_enabled)
+        raw_text = get_entry(speech_enabled, first_entry=first_entry)
 
         if raw_text.strip().lower() in ("quit", "exit", "q"):
             print("\nGoodbye! Your entries have been saved.\n")
@@ -42,6 +43,8 @@ def run_diary(
 
         if not should_continue_diary(speech_enabled):
             break
+        
+        first_entry = False
 
 
 if __name__ == "__main__":

@@ -62,51 +62,72 @@ def speak(text):
 
 
 def record_and_save(output_path):
-    q = queue.Queue()
+    q = queue.SimpleQueue()
     recording = []
-    start_time = time.time()
+    callback_warnings = []
+    start_time = time.monotonic()
+    chunk_count = 0
+    total_frames = 0
 
     def callback(indata, frames, time_info, status):
+        # Keep callback work minimal to avoid audio-thread stalls.
         if status:
-            print(status)
-        try:
-            q.put_nowait(indata.copy())
-        except queue.Full:
-            # If the main loop is busy, drop this chunk instead of blocking
-            # the audio callback thread.
-            pass
+            callback_warnings.append(str(status))
+        q.put(indata.copy())
 
     print("Recording... Press Ctrl+C to stop.")
-    stream = None
     try:
-        stream = sd.InputStream(
+        with sd.InputStream(
             samplerate=SAMPLERATE,
             channels=CHANNELS,
+            dtype="float32",
+            blocksize=0,
             callback=callback
-        )
-        stream.start()
-        while True:
-            if time.time() - start_time >= DURATION:
-                print(f"\nReached max recording duration ({DURATION} seconds).")
-                break
-            try:
-                # Use a timeout so Python can process Ctrl+C promptly.
-                data = q.get(timeout=0.1)
-                recording.append(data)
-            except queue.Empty:
-                pass
+        ):
+            while True:
+                if time.monotonic() - start_time >= DURATION:
+                    print(f"\nReached max recording duration ({DURATION} seconds).")
+                    break
+
+                # Drain all available chunks without blocking.
+                drained = False
+                while True:
+                    try:
+                        chunk = q.get_nowait()
+                        recording.append(chunk)
+                        chunk_count += 1
+                        total_frames += chunk.shape[0]
+                        drained = True
+                    except queue.Empty:
+                        break
+
+                # Small sleep avoids a busy-spin while staying responsive.
+                if not drained:
+                    time.sleep(0.01)
     except KeyboardInterrupt:
         print("\nStopped recording.")
     finally:
-        if stream is not None:
+        # Keep any final chunks queued right before stopping.
+        while True:
             try:
-                stream.stop()
-            finally:
-                stream.close()
+                recording.append(q.get_nowait())
+            except queue.Empty:
+                break
 
-    # Keep any final chunks that were queued right before Ctrl+C.
-    while not q.empty():
-        recording.append(q.get_nowait())
+    if callback_warnings:
+        unique_warnings = sorted(set(callback_warnings))
+        print("Audio input warnings:")
+        for warning in unique_warnings:
+            print(f"- {warning}")
+
+    recorded_seconds = total_frames / SAMPLERATE if total_frames > 0 else 0.0
+    wall_seconds = time.monotonic() - start_time
+    print(
+        f"Recording diagnostics: chunks={chunk_count}, "
+        f"frames={total_frames}, "
+        f"audio_seconds={recorded_seconds:.3f}, "
+        f"wall_seconds={wall_seconds:.3f}"
+    )
 
     if recording:
         audio = np.concatenate(recording, axis=0)
@@ -197,17 +218,16 @@ def start_diary(speech_enabled=True):
 
 def get_entry(speech_enabled=True, first_entry=False):
     SPEECH_ENABLED = speech_enabled
-    log_text = f"Hey, what's up? Feel free to {'speak' if SPEECH_ENABLED else 'type'} your diary entry."
-    print_assistant(log_text)
+    if first_entry:
+        print_assistant("Hey, what's up?" )
+        if SPEECH_ENABLED:
+            speak("Hey, what's up?")
     if SPEECH_ENABLED:
-        speak(log_text)
         print("Listening for your diary entry... Stop recording with Ctrl+C when done.")
         text = stt()
     else:
         text = input("Your diary entry: ")
     print_diary(f"Your diary entry: {text}")
-
-    # text formatting?
     return text
 
 def diary_response(
@@ -234,7 +254,7 @@ def diary_response(
                 f"{listen}, "
                 f"{json.dumps(container_output)})"
             ),
-        ], check=True, stdout=subprocess.DEVNULL)  # hide standard output
+        ], check=True)  # hide standard output
 
         with open(output_path, "r") as f:
             response = f.read().strip()

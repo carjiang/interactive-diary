@@ -20,6 +20,7 @@ tmp*
 # *.faiss
 # *diary_store.jsonl
 *transcript_convo.json
+session_logs.jsonl
 session_summaries.jsonl
 
 # NER pipeline
