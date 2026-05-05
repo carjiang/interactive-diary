@@ -41,8 +41,8 @@ def run_diary(
                 response[1 - ablation_i] = f_rag.result()
                 response[ablation_i] = f_abl.result()
             elapsed_seconds = time.perf_counter() - start_time
-            print(f"\n=== Response Generation Timing (parallel) ===")
-            print(f"  Wall time (both paths concurrent): {elapsed_seconds:.1f}s")
+            # print(f"\n=== Response Generation Timing (parallel) ===")
+            # print(f"  Wall time (both paths concurrent): {elapsed_seconds:.1f}s")
         else:
             t0 = time.perf_counter()
             response[1 - ablation_i] = diary_response(
@@ -56,11 +56,11 @@ def run_diary(
 
             elapsed_seconds = time.perf_counter() - start_time
             total = t_rag + t_abl
-            print(f"\n=== Response Generation Timing (sequential) ===")
-            print(f"  {'RAG pipeline':<25} {t_rag:>6.1f}s  ({100 * t_rag / total:>5.1f}%)")
-            print(f"  {'Ablation pipeline':<25} {t_abl:>6.1f}s  ({100 * t_abl / total:>5.1f}%)")
-            print(f"  {'TOTAL':<25} {total:>6.1f}s")
-            print(f"  (parallel would save ~{t_abl:.1f}s = ablation path time)")
+            # print(f"\n=== Response Generation Timing (sequential) ===")
+            # print(f"  {'RAG pipeline':<25} {t_rag:>6.1f}s  ({100 * t_rag / total:>5.1f}%)")
+            # print(f"  {'Ablation pipeline':<25} {t_abl:>6.1f}s  ({100 * t_abl / total:>5.1f}%)")
+            # print(f"  {'TOTAL':<25} {total:>6.1f}s")
+            # print(f"  (parallel would save ~{t_abl:.1f}s = ablation path time)")
 
         print(f"Generation runtime: {elapsed_seconds:.1f} seconds")
         put_reply(f"Response A: {response[0]}", speech_enabled)
