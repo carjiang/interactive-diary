@@ -274,10 +274,10 @@ def should_continue_diary(ablation_key, speech_enabled=True):
         "\nWould you like to write another entry? [Y/n]: ").strip().lower()
     y = keep_going not in ("n", "no", "stop", "quit", "exit", "q")
     if not y:
-        prompt = f"Bye-bye! Your ablation key is {ablation_key}. Please fill out the survey. :)"
-        print_assistant(prompt)
+        prompt = f"Bye-bye! Your ablation key is {ablation_key}. Please fill out the survey."
+        print_assistant(prompt + " :)")
         if speech_enabled:
-            speak(prompt)
+            speak(prompt + " smiley face.")
     return y
 
 
