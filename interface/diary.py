@@ -117,12 +117,12 @@ def record_and_save(output_path):
 
     recorded_seconds = total_frames / SAMPLERATE if total_frames > 0 else 0.0
     wall_seconds = time.monotonic() - start_time
-    print(
-        f"Recording diagnostics: chunks={chunk_count}, "
-        f"frames={total_frames}, "
-        f"audio_seconds={recorded_seconds:.3f}, "
-        f"wall_seconds={wall_seconds:.3f}"
-    )
+    # print(
+    #     f"Recording diagnostics: chunks={chunk_count}, "
+    #     f"frames={total_frames}, "
+    #     f"audio_seconds={recorded_seconds:.3f}, "
+    #     f"wall_seconds={wall_seconds:.3f}"
+    # )
 
     if recording:
         audio = np.concatenate(recording, axis=0)
@@ -174,19 +174,23 @@ def stt():
     return text
 
 
-def gpt_diary_response(text):
-    with tempfile.NamedTemporaryFile(suffix=".txt", dir=".") as tmp:
-        output_path = tmp.name
-        _, container_output = get_container_path(output_path)
-        subprocess.run([
-            "docker", "compose", "exec", "-T", "app",
-            "python", "-c",
-            f"from interface.io_audio import generate_gpt_response; generate_gpt_response({json.dumps(text)}, {json.dumps(container_output)})"
-        ], check=True, stdout=subprocess.DEVNULL)  # hide standard output
+# def gpt_diary_response(text):
+#     with tempfile.NamedTemporaryFile(suffix=".txt", dir=".") as tmp:
+#         output_path = tmp.name
+#         _, container_output = get_container_path(output_path)
+#         subprocess.run([
+#             "docker", "compose", "exec", "-T", "app",
+#             "python", "-c",
+#             f"from interface.io_audio import generate_gpt_response; generate_gpt_response({json.dumps(text)}, {json.dumps(container_output)})"
+#         ],
+#             check=True,
+#             stdout=subprocess.DEVNULL,
+#             stderr=subprocess.DEVNULL,
+#         )  # hide standard output
 
-        with open(output_path, 'r') as f:
-            response = f.read().strip()
-    return response
+#         with open(output_path, 'r') as f:
+#             response = f.read().strip()
+#     return response
 
 
 def start_diary(speech_enabled=True):

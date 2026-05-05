@@ -1,7 +1,7 @@
 # interactive-diary
 CS 4701 project for Michael, Armaan, Carly
 
-Hi welcome to Interactive Diary! This is an interactive diary which utilizes thought tracing to extract a user's beliefs, retrieval over counselling conversations dataset, and calls to Chat GPT.
+Hi welcome to Interactive Diary! This is an interactive diary which utilizes thought tracing to extract a user's beliefs, retrieval over counselling conversations dataset, and calls to Chat GPT. **Please let us know ASAP if you have problems with set up and running the diary.**
 
 ## Set Up
 ### Virtual Environment
@@ -10,11 +10,11 @@ Hi welcome to Interactive Diary! This is an interactive diary which utilizes tho
 
 ### Environment File
 1. Create `.env` file in the root directory of this project
-2. Paste `OPENAI_API_KEY=` followed by the API key we send to you privately. There is $3 allocated on this key. Please do not share this API key or use it for any other purposes. If you run out of credits please let us know so we can give more!
+2. Paste `OPENAI_API_KEY=` followed by the API key we send to you privately. Please do not share this API key or use it for any other purposes. If you run out of credits please let us know so we can give more!
 
 ### Model Weights
-1. Download and unzip models weights. It should be a folder called `checkpoints/`
-1. Move `checkpoints/` to `thought_trace/extractor/checkpoints/`
+1. Download and unzip models weights. It should be a structured as `thought_trace/extractor/checkpoints/best_v3`
+1. Move `best_v3` to the same directory in the project repositor: `thought_trace/extractor/checkpoints/best_v3`
 
 ### Docker
 3. Install [Docker Desktop](https://docs.docker.com/desktop/), and update to the latest version
@@ -29,13 +29,14 @@ Hi welcome to Interactive Diary! This is an interactive diary which utilizes tho
 3. Activate virtual environment
 4. Run `python mvp.py` from the project root
 5. After you're done, stop the docker container with `docker compose down`
+5. Review interactive diary conversations in `session_logs/`
 5. Enjoy!
 
 
 ### Usage Guidelines:
 - Use first-person
 - Feel free to use our program to journal or diary about anything. We do NOT store or have access to any logs.
-- Your diary session can be as short or long as you want: you can choose when to end the session (by entering "no" when it asks if you want to continue), or whether to continue conversing.
+- Your diary session can be as short or long as you want: you can choose when to end the session (by entering "no" when it asks if you want to continue), or whether to continue conversing. All logs are stored locally on your own computer.
 - Fill out survey. Keep track of ablation key for submission to the survey.
 - If you cannot get audio to work, apply a text tag `python mvp.py --text`
 - Don't abuse use of your API key; only use it here and don't use the diary for hours
