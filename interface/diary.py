@@ -223,6 +223,9 @@ def get_entry(speech_enabled=True, first_entry=False):
     print_diary(f"Your diary entry: {text}")
     return text
 
+_SERVER_URL = "http://localhost:8765"
+
+
 def diary_response(
     raw_text: str,
     user_id: str,
@@ -230,26 +233,22 @@ def diary_response(
     top_k: int,
     ablation: bool,
 ) -> str:
-    call = "gpt" if ablation else "rag"
-    with tempfile.NamedTemporaryFile(suffix=".txt", dir=".") as tmp:
-        output_path = tmp.name
-        _, container_output = get_container_path(output_path)
-        subprocess.run([
-            "docker", "compose", "exec", "-T", "app",
-            "python", "-c",
-            (
-                f"from interface.io_rag import generate_{call}_response; "
-                f"generate_{call}_response({json.dumps(raw_text)}, "
-                f"{json.dumps(user_id)}, "
-                f"{json.dumps(session_id)}, "
-                f"{int(top_k)}, "
-                f"{json.dumps(container_output)})"
-            ),
-        ], check=True)  # hide standard output
+    import urllib.request
 
-        with open(output_path, "r") as f:
-            response = f.read().strip()
-    return response
+    endpoint = "gpt" if ablation else "rag"
+    payload = json.dumps({
+        "diary_entry": raw_text,
+        "user_id": user_id,
+        "session_id": session_id,
+        "top_k": top_k,
+    }).encode()
+    req = urllib.request.Request(
+        f"{_SERVER_URL}/{endpoint}",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(req, timeout=600) as resp:
+        return resp.read().decode().strip()
 
 def put_reply(text, speech_enabled=True):
     SPEECH_ENABLED = speech_enabled

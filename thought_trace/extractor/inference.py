@@ -32,12 +32,17 @@ _SELF_PRONOUNS = frozenset(
 _SELF_AGENT_NAMES = _SELF_PRONOUNS
 _SENTENCE_RE = re.compile(r"\s*([^\n.!?]+[.!?]?)", re.MULTILINE)
 
+_MODEL_CACHE: dict[Path, tuple[BertCRFForNER, BertTokenizerFast, NERConfig]] = {}
+
 
 def load_model(
     checkpoint_dir: str | Path,
     device: str | torch.device | None = None,
 ) -> tuple[BertCRFForNER, BertTokenizerFast, NERConfig]:
-    ckpt = Path(checkpoint_dir)
+    ckpt = Path(checkpoint_dir).resolve()
+
+    if ckpt in _MODEL_CACHE:
+        return _MODEL_CACHE[ckpt]
 
     config = NERConfig(**json.loads((ckpt / "config.json").read_text()))
     tokenizer = BertTokenizerFast.from_pretrained(str(ckpt))
@@ -50,6 +55,7 @@ def load_model(
     model.eval()
 
     logger.info("Loaded checkpoint from %s on %s", ckpt, dev)
+    _MODEL_CACHE[ckpt] = (model, tokenizer, config)
     return model, tokenizer, config
 
 

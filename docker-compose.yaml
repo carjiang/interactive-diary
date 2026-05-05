@@ -7,8 +7,9 @@ services:
     image: interactive-diary-app
     container_name: interactive-diary
 
-    # DEV MODE: keep container alive
-    command: ["tail", "-f", "/dev/null"]
+    command: ["python", "server.py"]
+    ports:
+      - "8765:8765"
 
     working_dir: /app
 

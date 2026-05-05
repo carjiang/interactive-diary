@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 from datetime import datetime, timezone
 from thought_trace.extractor import inference as eext
@@ -322,8 +323,12 @@ class BaseTracer(ABC):
             'extractor' / 'checkpoints' / 'best_v3'
         # ---------------------------------
 
+        _t0 = time.perf_counter()
         model, tokenizer, config = eext.load_model(model_checkpoint)
+        print(f"  [ToM] ner_model_load:      {time.perf_counter() - _t0:.2f}s")
+
         diary_entry = text
+        _t0 = time.perf_counter()
         trajectory = eext.extract_entries(
             texts=[diary_entry],
             model=model,
@@ -332,6 +337,7 @@ class BaseTracer(ABC):
             output_format="trajectory",
             target_agent="ME",
         )[0]
+        print(f"  [ToM] event_extraction:    {time.perf_counter() - _t0:.2f}s")
 
         # ======================================================
 
@@ -523,8 +529,10 @@ class Tracer(BaseTracer):
             self, text, target_agent)
         # if preprocessed_text is None:
         #     return None
+        _t0 = time.perf_counter()
         preprocessed_text['perceptions'] = self.track_perception(
             preprocessed_text['trajectory'], preprocessed_text['target_agent'])
+        print(f"  [ToM] perception_tracking: {time.perf_counter() - _t0:.2f}s")
         # preprocessed_text['assumption'] = self.get_assumption(preprocessed_text['question'])
         # self.assumption = f"\n{preprocessed_text['assumption']}"
 
@@ -830,7 +838,12 @@ class Tracer(BaseTracer):
         return {'text': trace_str.strip(), 'aggregated': True}
 
     def _trace(self, text: str, target_agent=None):
+        _t: dict = {}
+
+        _t0 = time.perf_counter()
         preprocessed_text = self.preprocess_input(text, target_agent)
+        _t['preprocess (NER+extract+perception)'] = time.perf_counter() - _t0
+
         # if preprocessed_text is None:
         #     print(cf.bold | cf.magenta("Failed to identify the target agent."))
         #     self.dump({'summary': ""}, [])
@@ -841,19 +854,26 @@ class Tracer(BaseTracer):
         perceptions_trajectory = preprocessed_text['perceptions']
 
         hypotheses_list = []
+        t_init = t_prop = t_weigh = 0.0
         # context_history = []
         for idx, (state_action, perceptions) in enumerate(zip(trajectory, perceptions_trajectory)):
             if idx == 0:
+                _t0 = time.perf_counter()
                 new_hypotheses = self.initialize(
                     state_action=state_action, perceptions=perceptions)
+                t_init += time.perf_counter() - _t0
             else:
                 existing_hypotheses = hypotheses_list[-1]
+                _t0 = time.perf_counter()
                 new_hypotheses = self.propagate(
                     existing_hypotheses, state_action=state_action, perceptions=perceptions)
+                t_prop += time.perf_counter() - _t0
 
             if state_action['action']:
+                _t0 = time.perf_counter()
                 weight_results = self.weigh(
                     new_hypotheses, state_action['action'], mode="prompting")
+                t_weigh += time.perf_counter() - _t0
                 new_hypotheses.update_weights(weight_results['weights'])
                 new_hypotheses.weight_details = weight_results
 
@@ -878,10 +898,24 @@ class Tracer(BaseTracer):
             # if state_action['action']:
             #     context_history.append({'text': state_action['action'], 'action': True})
 
+        _t['hypothesis_init'] = t_init
+        _t['hypothesis_propagate'] = t_prop
+        _t['hypothesis_weigh'] = t_weigh
+
         # print("==== HYPOTHESES LIST ====")
         # print([h.dump() for h in hypotheses_list])
 
+        _t0 = time.perf_counter()
         traced_thoughts = self.chain_weighted_average_trace(hypotheses_list)
+        _t['chain_aggregate'] = time.perf_counter() - _t0
+
+        total = sum(_t.values())
+        print("\n=== ToM Tracer Timing ===")
+        for stage, dur in _t.items():
+            pct = 100 * dur / total if total > 0 else 0
+            print(f"  {stage:<45} {dur:>6.2f}s  ({pct:>5.1f}%)")
+        print(f"  {'TOTAL':<45} {total:>6.2f}s")
+
         # trace_text = f"{self.trace_header}\n\n{traced_thoughts['text']}"
 
         # self.dump(traced_thoughts, hypotheses_list)

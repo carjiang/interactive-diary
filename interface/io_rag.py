@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import json
+import time
 import uuid
 import warnings
 from datetime import datetime, timezone
@@ -111,15 +112,29 @@ def _append_markdown_turn(
         f.write("---\n\n")
 
 
+def _print_timing_report(label: str, stages: dict) -> None:
+    total = sum(stages.values())
+    print(f"\n=== {label} Timing ===")
+    for stage, dur in stages.items():
+        pct = 100 * dur / total if total > 0 else 0
+        print(f"  {stage:<35} {dur:>6.2f}s  ({pct:>5.1f}%)")
+    print(f"  {'TOTAL':<35} {total:>6.2f}s")
+
+
 def generate_rag_response(
     diary_entry: str,
     user_id: str,
     session_id: str,
     top_k: int,
-    output_path: str,
-) -> None:
+    output_path: str | None = None,
+) -> str:
+    _t: dict = {}
 
+    t0 = time.perf_counter()
     tom = trace_thought.main(diary_entry)
+    _t['thought_tracing'] = time.perf_counter() - t0
+
+    t0 = time.perf_counter()
     coaching_intent_raw = _call_gpt(
         (
             "You are a strict JSON generator. Return ONLY a JSON object with this schema: "
@@ -128,6 +143,8 @@ def generate_rag_response(
         ),
         f"Diary entry:\n{diary_entry}\n\nTheory of mind hypotheses:\n{tom}\n\nJSON:",
     )
+    _t['coaching_intent'] = time.perf_counter() - t0
+
     try:
         coaching_intent = json.loads(coaching_intent_raw)
     except json.JSONDecodeError:
@@ -143,16 +160,20 @@ def generate_rag_response(
         f"Theory of Mind Hypothesis: {tom}\n\n"
         f"Coaching Intent: {json.dumps(coaching_intent)}"
     )
-    
+
+    t0 = time.perf_counter()
     rag_key = _call_gpt(_RAG_KEY_PROMPT, diary_tom + "\n\nSummary:")
+    _t['rag_key_gen'] = time.perf_counter() - t0
 
     # ====== BEGIN RAG STUFF ======
     retriever = HypothesisRetriever(client=client)
     timestamp = datetime.now(tz=timezone.utc)
 
     print("RAG_KEY", rag_key,"\n")
+    t0 = time.perf_counter()
     retrieved = retriever.retrieve_similar(
         rag_key, user_id='counselors', top_k=top_k)
+    _t['retrieval (embed+faiss)'] = time.perf_counter() - t0
 
     # filter out if less than .4
     for i, r in enumerate(retrieved):
@@ -162,16 +183,22 @@ def generate_rag_response(
     retrieved = "\n".join(
         f"{i}. Context: {r['raw_text']}\nExample Response: {random.sample(r['response'], k=min(5,len(r['response'])))}" for i, r in enumerate(retrieved) # sample up to 5 responses for each
     )
+
+    t0 = time.perf_counter()
     if retrieved == "":
         retrieved = "None"
     else:
         retrieved = _call_gpt(
             "Given the following mental health counselling examples, summarize brief what each client's problem is and generally what approaches counsellors take in reply:", f"{retrieved}\n\nSummary:"
         )
+    _t['rag_summarization'] = time.perf_counter() - t0
 
     # ====== Get History ======
+    t0 = time.perf_counter()
     past_summaries = _load_past_session_history(
         user_id=user_id, session_id=session_id)
+    _t['history_load'] = time.perf_counter() - t0
+
     if past_summaries:
         past_session_history = "\n".join(
             f"{i}. {s}" for i, s in enumerate(past_summaries, start=1)
@@ -184,19 +211,15 @@ def generate_rag_response(
     prompt = _COACHING_RESPONSE_PROMPT  if coaching_intent["wants_coaching_or_advice"] else _LISTENING_RESPONSE_PROMPT
     diary_tom_rag_history = f"{diary_tom}\n\nRetrieved counseling entries: {retrieved}\n\nPast session summaries:\n{past_session_history}"
     print("DIARY_TOM_RAG_HISTORY", diary_tom_rag_history)
+    t0 = time.perf_counter()
     response = _call_gpt(
         prompt,
         f"{diary_tom_rag_history} \n\nResponse:",
     )
-    
-    # # TODO: Use this to finetune prompt.
-    # comparator_response = _call_gpt(
-    #     _COMPARATOR_PROMPT,
-    #     f"{diary_tom_rag_history} \n\nResponse:",
-    # )
-    # print("\n\nCOMPARATOR RESPONSE", comparator_response)
+    _t['final_response'] = time.perf_counter() - t0
 
     # ====== Create and store summary =======
+    t0 = time.perf_counter()
     summary = f"Diary Entry: {diary_entry}\n\nResponse: {response}"
     _store_session_summary(
         user_id=user_id,
@@ -212,10 +235,15 @@ def generate_rag_response(
         diary_entry=diary_entry,
         response=response,
     )
+    _t['storage'] = time.perf_counter() - t0
 
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    with open(output_path, "w") as f:
-        f.write(response)
+    _print_timing_report("RAG Pipeline", _t)
+
+    if output_path:
+        os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+        with open(output_path, "w") as f:
+            f.write(response)
+    return response
 
 
 def generate_gpt_response(
@@ -223,8 +251,8 @@ def generate_gpt_response(
     user_id: str,
     session_id: str,
     top_k: int,
-    output_path: str,
-) -> None:
+    output_path: str | None = None,
+) -> str:
     user_id = user_id + "_gpt_ablation"
     timestamp = datetime.now(tz=timezone.utc)
 
@@ -264,9 +292,11 @@ def generate_gpt_response(
         response=response,
     )
 
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    with open(output_path, "w") as f:
-        f.write(response)
+    if output_path:
+        os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+        with open(output_path, "w") as f:
+            f.write(response)
+    return response
 
 
 if __name__ == '__main__':
