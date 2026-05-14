@@ -220,7 +220,7 @@ def generate_rag_response(
 
     # ====== Create and store summary =======
     t0 = time.perf_counter()
-    summary = f"Diary Entry: {diary_entry}\n\nResponse: {response}"
+    summary = f"Diary Entry: {diary_entry}\n\nResponse: {response}\n\nUser Belief Hypotheses:{tom}"
     _store_session_summary(
         user_id=user_id,
         session_id=session_id,
