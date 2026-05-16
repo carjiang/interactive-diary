@@ -12,6 +12,7 @@ def run_diary(
     user_id: str,
     speech_enabled: bool = False,
     top_k: int = 3,
+    ablation: bool = False,
     parallel: bool = False,
 ) -> None:
     session_id = str(uuid.uuid4())
@@ -37,9 +38,11 @@ def run_diary(
             # A/B: run both paths concurrently to measure wall-time speedup
             with ThreadPoolExecutor(max_workers=2) as executor:
                 f_rag = executor.submit(diary_response, raw_text, user_id, session_id, top_k, False)
-                f_abl = executor.submit(diary_response, raw_text, user_id, session_id, top_k, True)
+                if ablation:
+                    f_abl = executor.submit(diary_response, raw_text, user_id, session_id, top_k, True)
                 response[1 - ablation_i] = f_rag.result()
-                response[ablation_i] = f_abl.result()
+                if ablation:
+                    response[ablation_i] = f_abl.result()
             elapsed_seconds = time.perf_counter() - start_time
             # print(f"\n=== Response Generation Timing (parallel) ===")
             # print(f"  Wall time (both paths concurrent): {elapsed_seconds:.1f}s")
@@ -49,13 +52,14 @@ def run_diary(
                 raw_text, user_id, session_id, top_k, ablation=False)
             t_rag = time.perf_counter() - t0
 
-            t0 = time.perf_counter()
-            response[ablation_i] = diary_response(
-                raw_text, user_id, session_id, top_k, ablation=True)
-            t_abl = time.perf_counter() - t0
+            if ablation:
+                t0 = time.perf_counter()
+                response[ablation_i] = diary_response(
+                    raw_text, user_id, session_id, top_k, ablation=True)
+                t_abl = time.perf_counter() - t0
 
             elapsed_seconds = time.perf_counter() - start_time
-            total = t_rag + t_abl
+            # total = t_rag + t_abl
             # print(f"\n=== Response Generation Timing (sequential) ===")
             # print(f"  {'RAG pipeline':<25} {t_rag:>6.1f}s  ({100 * t_rag / total:>5.1f}%)")
             # print(f"  {'Ablation pipeline':<25} {t_abl:>6.1f}s  ({100 * t_abl / total:>5.1f}%)")
@@ -63,16 +67,19 @@ def run_diary(
             # print(f"  (parallel would save ~{t_abl:.1f}s = ablation path time)")
 
         print(f"Generation runtime: {elapsed_seconds:.1f} seconds")
-        put_reply(f"Response A: {response[0]}", speech_enabled)
-        put_reply(f"Response B: {response[1]}", speech_enabled)
+        if ablation:
+            put_reply(f"Response A: {response[0]}", speech_enabled)
+            put_reply(f"Response B: {response[1]}", speech_enabled)
 
-        prefer_A = get_ablation_preference()
-        if (prefer_A and (ablation_i == 1)) or (not prefer_A and (ablation_i == 0)):
-            ablation_key += "1"
+            prefer_A = get_ablation_preference()
+            if (prefer_A and (ablation_i == 1)) or (not prefer_A and (ablation_i == 0)):
+                ablation_key += "1"
+            else:
+                ablation_key += "0"
         else:
-            ablation_key += "0"
+            put_reply(f"Response: { response[1 - ablation_i]}", speech_enabled)
 
-        if not should_continue_diary(ablation_key, speech_enabled):
+        if not should_continue_diary(ablation_key, ablation=ablation, speech_enabled=speech_enabled):
             break
 
         first_entry = False
@@ -89,6 +96,8 @@ if __name__ == "__main__":
                         help="Disable speech, use text only")
     parser.add_argument("--top-k", type=int, default=3,
                         help="Past entries to retrieve")
+    parser.add_argument("--ablation", action="store_true",
+                        help="determine if running ablation test")
     parser.add_argument("--parallel", action="store_true",
                         help="Run RAG and ablation paths concurrently (A/B latency test)")
     args = parser.parse_args()
@@ -96,5 +105,6 @@ if __name__ == "__main__":
         user_id=args.user,
         speech_enabled=not args.text,
         top_k=args.top_k,
+        ablation=args.ablation,
         parallel=args.parallel,
     )

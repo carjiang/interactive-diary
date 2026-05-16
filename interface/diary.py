@@ -269,12 +269,15 @@ def get_ablation_preference():
         return get_ablation_preference()
     return prefer_A
 
-def should_continue_diary(ablation_key, speech_enabled=True):
+def should_continue_diary(ablation_key, ablation=False, speech_enabled=True):
     keep_going = input(
         "\nWould you like to write another entry? [Y/n]: ").strip().lower()
     y = keep_going not in ("n", "no", "stop", "quit", "exit", "q")
     if not y:
-        prompt = f"Bye-bye! Your ablation key is {ablation_key}. Please fill out the survey."
+        if ablation:
+            prompt = f"Bye-bye! Your ablation key is {ablation_key}. Please fill out the survey."
+        else:
+            prompt = "Goodbye! Please fill out the survey."
         print_assistant(prompt + " :)")
         if speech_enabled:
             speak(prompt + " smiley face.")

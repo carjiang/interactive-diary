@@ -12,7 +12,8 @@ Hi welcome to Interactive Diary! This is an interactive diary which utilizes tho
 1. Create `.env` file in the root directory of this project
 2. Paste `OPENAI_API_KEY=` followed by the API key we send to you privately. Please do not share this API key or use it for any other purposes. If you run out of credits please let us know so we can give more!
 
-### Model Weights
+### Extractor Model Weights
+1. Download model weights here:[Google Drive Link](https://drive.google.com/file/d/1pioO-0nUM4DXPELTuSFgXqJbhDCnrqD8/view?usp=sharing)
 1. Download and unzip models weights. It should be a structured as `thought_trace/extractor/checkpoints/best_v3`
 1. Move `best_v3` to the same directory in the project repositor: `thought_trace/extractor/checkpoints/best_v3`
 
